@@ -1,19 +1,33 @@
 #include "stdafx.h"
 #include <vector>
 
-#include "Scintilla.h"
-#include "SciLexer.h"
-#include "atlscilexer.h"
+#include "SDK/console.h"
+#include "libPPUI/win32_utility.h"
 
-#include "TitleformatSandboxDialog.h"
+#include "Scintilla.h"
+#include "ScintillaMessages.h"
+#include "ScintillaTypes.h"
+
+#include "scintilla/include/ILexer.h"
+#include "lexilla/include/SciLexer.h"
+
+#include "Lexilla.h"
+
+#include "ScintillaCtrlExt.h"
+
+#include "colors_json.h"
+#include "version.h"
+
 #include "titleformat_node_filter.h"
 #include "titleformat_visitor_impl.h"
+
+#include "TitleformatSandboxDialog.h"
 
 #ifndef U2T
 #define U2T(Text) pfc::stringcvt::string_os_from_utf8(Text).get_ptr()
 #endif
 
-#define USE_EXPLORER_THEME 1
+//#define USE_EXPLORER_THEME 1
 
 // {5BC4462B-30F5-4C9D-AE75-492725363753} mod
 static const GUID guid_cfg_format = { 0x5bc4462b, 0x30f5, 0x4c9d, { 0xae, 0x75, 0x49, 0x27, 0x25, 0x36, 0x37, 0x53 } };
@@ -91,35 +105,44 @@ bool CTitleFormatSandboxDialog::find_fragment(ast::fragment &out, int start, int
 	return ast::find_fragment(out, m_debugger.get_root(), start, end, &ast::node_filter_impl_unknown_function(m_debugger));
 }
 
+//snapLeft, snapTop, snapRight, snapBottom
 static CDialogResizeHelper::Param resizeParams[] = {
     {IDC_SCRIPT, 0, 0, 1, 1},
     {IDC_VALUE, 0, 1, 1, 1},
     {IDC_TREE, 1, 0, 1, 1}
 };
-
-CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() : m_dlgPosTracker(cfg_window_position), m_dlgResizeHelper(resizeParams)
+CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resizeParams), m_script_update_pending(false),
+	m_dlgPosTracker(cfg_window_position)
 {
-    m_dlgResizeHelper.set_min_size(300, 150);
-
-	m_privateCall = NULL;
+	m_dlgResizeHelper.set_min_size(342, 232);
 
 	pfc::string8 install_dir = pfc::string_directory(core_api::get_my_full_path());
+	pfc::string8 scintilla_path = PFC_string_formatter() << install_dir << "\\Scintilla.dll";
 
-	m_sciLexerScope.LoadLibrary(TEXT("SciLexer.dll"));
+	m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
 
-	pfc::string8 lextitleformat_path = install_dir;
-	lextitleformat_path += "\\LexTitleformat.dll";
+	if (!m_scintillaScope.IsLoaded()) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << scintilla_path << " not loaded.";
+		return;
+	}
 
-	m_lexTitleformatScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lextitleformat_path.get_ptr()));
+	pfc::string8 lexilla_path = PFC_string_formatter() << install_dir << "\\Lexilla.dll";
+
+	m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
+
+	if (!m_lexillaScope.IsLoaded()) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << lexilla_path << " not loaded.";
+		return;
+	}
 }
 
 CTitleFormatSandboxDialog::~CTitleFormatSandboxDialog()
 {
-	if (m_privateCall != NULL)
+	/*if (m_privateCall != NULL)
 	{
 		m_privateCall->Release();
 		m_privateCall = NULL;
-	}
+	}*/
 }
 
 bool CTitleFormatSandboxDialog::pretranslate_message(MSG *pMsg)
@@ -138,17 +161,19 @@ void CTitleFormatSandboxDialog::ActivateDialog()
 {
 	if (!g_wndInstance)
 	{
-		CTitleFormatSandboxDialog * dlg = new CTitleFormatSandboxDialog();
+		CTitleFormatSandboxDialog * dlg /*g_dialog*/ = new CTitleFormatSandboxDialog();
 
-		if (dlg->Create(core_api::get_main_window()) != NULL)
+		if (dlg->m_scintillaScope.IsLoaded() && dlg->m_lexillaScope.IsLoaded() &&
+			dlg->Create(core_api::get_main_window()) != NULL)
 		{
+
 			dlg->ShowWindow(SW_SHOW);
 		}
 		else
 		{
 			DWORD dwError = ::GetLastError();
 			pfc::string8 message;
-			console::formatter() << core_api::get_my_file_name() << ": Could not create window: "
+			console::formatter() << "[" << COMPONENT_NAME << "] " << ": Could not create window, "
 				<< (uFormatSystemErrorMessage(message, dwError) ? message.get_ptr() : pfc::format_hex(dwError).get_ptr());
 		}
 	}
@@ -160,15 +185,40 @@ void CTitleFormatSandboxDialog::ActivateDialog()
 
 void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 {
-	m_editor.SetMarginTypeN(0, SC_MARGIN_NUMBER);
-	m_editor.SetMarginWidthN(0, m_editor.TextWidth(STYLE_LINENUMBER, "_99"));
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+	// MARGIN
+
+	rCtrlScript.SetMarginTypeN(0, Scintilla::MarginType::Number);
+	rCtrlScript.SetMarginWidthN(0, rCtrlScript.TextWidth(STYLE_LINENUMBER, "_99"));
 
 	sciLexer.SetMarginTypeN(1, SC_MARGIN_BACK);
 	sciLexer.SetMarginMaskN(1, SC_MASK_FOLDERS);
 	sciLexer.SetMarginWidthN(1, 16);
 	sciLexer.SetMarginSensitiveN(1, true);
-	
-	sciLexer.SetFoldMarginColour(true, RGB(255, 255, 255));
+
+	// MAIN BACK/FORE COLORS
+
+	COLORREF background;
+	COLORREF foreground;
+	COLORREF selbackground;
+	COLORREF selforeground;
+
+	auto tc = get_gen_color(mgen_colors["background"]);
+	background = RGB(tc.r, tc.g, tc.b);
+	tc = get_gen_color(mgen_colors["foreground"]);
+	foreground = RGB(tc.r, tc.g, tc.b);
+
+	tc = get_gen_color(mgen_colors["selection background"]);
+	selbackground = RGB(tc.r, tc.g, tc.b);
+	tc = get_gen_color(mgen_colors["selection foreground"]);
+	selforeground = RGB(tc.r, tc.g, tc.b);
+
+	///////////////////////////////////////////////////////////////
+
+	rCtrlScript.SetEdgeColour(background);
+
+	sciLexer.SetFoldMarginColour(true, background);
 
 	int markerNumbers[] = {
 		SC_MARKNUM_FOLDEROPEN,
@@ -180,105 +230,180 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 		SC_MARKNUM_FOLDERMIDTAIL
 	};
 
+	// MARKERS
+
+	auto tc_mf = get_gen_color(mgen_colors["marker foreground"]);
+	auto tc_mb = get_gen_color(mgen_colors["marker background"]);
+	auto tc_msb = get_gen_color(mgen_colors["marker selected background"]);
+
+	COLORREF cr_mf = RGB(tc_mf.r, tc_mf.g, tc_mf.b);
+	COLORREF cr_mb = RGB(tc_mb.r, tc_mb.g, tc_mb.b);
+	COLORREF cr_msb = RGB(tc_msb.r, tc_msb.g, tc_msb.b);
+
 	for (int index = 0; index < (sizeof(markerNumbers) / sizeof(markerNumbers[0])); ++index)
 	{
 		int markerNumber = markerNumbers[index];
-		sciLexer.MarkerSetFore(markerNumber, RGB(255, 255, 255));
-		sciLexer.MarkerSetBack(markerNumber, RGB(128, 128, 128));
-		sciLexer.MarkerSetBackSelected(markerNumber, RGB(0, 0, 255));
+		sciLexer.MarkerSetFore(markerNumber, cr_mf);
+		sciLexer.MarkerSetBack(markerNumber, cr_mb);
+		sciLexer.MarkerSetBackSelected(markerNumber, cr_msb);
 	}
 
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEROPEN,    SC_MARK_BOXMINUS);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDER,        SC_MARK_BOXPLUS);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERSUB,     SC_MARK_VLINE);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERTAIL,    SC_MARK_LCORNER);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEREND,     SC_MARK_BOXPLUSCONNECTED);
+	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEROPEN, SC_MARK_BOXMINUS);
+	sciLexer.MarkerDefine(SC_MARKNUM_FOLDER, SC_MARK_BOXPLUS);
+	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERSUB, SC_MARK_VLINE);
+	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERTAIL, SC_MARK_LCORNER);
+	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEREND, SC_MARK_BOXPLUSCONNECTED);
 	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEROPENMID, SC_MARK_BOXMINUSCONNECTED);
 	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERMIDTAIL, SC_MARK_TCORNER);
 
-	sciLexer.SetAutomaticFold(SC_AUTOMATICFOLD_CLICK);
+	// WRAP AND FOLD
 
+	sciLexer.SetAutomaticFold(SC_AUTOMATICFOLD_CLICK);
 	sciLexer.SetWrapMode(SC_WRAP_WORD);
 	sciLexer.SetWrapVisualFlags(SC_WRAPVISUALFLAG_END);
 
+	// ---------  L E X E R -------------
+	
+	// FORE/BACKGROUND , SEL FORE/BACKGROUND
+	
+	//rCtrlScript.SetFoldMarginColour(background);
+	//rCtrlScript.SetElementColour(...);
+
 	sciLexer.StyleSetFont(STYLE_DEFAULT, "Consolas");
 	//sciLexer.StyleSetSizeFractional(STYLE_DEFAULT, 800);
-	sciLexer.StyleSetFore(STYLE_DEFAULT, RGB(0, 0, 0));
-	sciLexer.StyleSetBack(STYLE_DEFAULT, RGB(255, 255, 255));
+	sciLexer.StyleSetFore(STYLE_DEFAULT, foreground);
+	sciLexer.StyleSetBack(STYLE_DEFAULT, background);
+
+	sciLexer.SetSelFore(true, selforeground);
+	sciLexer.SetSelBack(true, selbackground);
+
 	sciLexer.StyleClearAll();
 
-	sciLexer.SetSelFore(true, RGB(255, 255, 255));
-	sciLexer.SetSelBack(true, RGB(51, 153, 255));
+	tc = get_gen_color(mgen_colors["selection foreground"]);
+	COLORREF cr_tmp = RGB(tc.r, tc.g, tc.b);
 
+	sciLexer.SetSelFore(true, cr_tmp);
+
+	tc = get_gen_color(mgen_colors["selection background"]);
+	cr_tmp = RGB(tc.r, tc.g, tc.b);
+
+	sciLexer.SetSelBack(true, cr_tmp);
+
+	// CALL TIPS
 	sciLexer.CallTipUseStyle(50);
 
 	sciLexer.StyleSetFont(STYLE_CALLTIP, "Verdana");
-	sciLexer.StyleSetFore(STYLE_CALLTIP, ::GetSysColor(COLOR_INFOTEXT));
-	sciLexer.StyleSetBack(STYLE_CALLTIP, ::GetSysColor(COLOR_INFOBK));
 
-	const COLORREF background = RGB(255, 255, 255);
+	tc = get_gen_color(mgen_colors["calltip foreground"]);
+	cr_tmp = RGB(tc.r, tc.g, tc.b);
 
-	m_editor.LoadLexerLibrary("LexTitleformat.dll");
+	sciLexer.StyleSetFore(STYLE_CALLTIP, cr_tmp);
 
-	sciLexer.SetLexerLanguage("titleformat");
-	ATL::CStringA lexerLanguage;
-	if ((sciLexer.GetLexerLanguage(lexerLanguage) > 0) && (lexerLanguage == "titleformat"))
+	tc = get_gen_color(mgen_colors["calltip background"]);
+	cr_tmp = RGB(tc.r, tc.g, tc.b);
+	sciLexer.StyleSetBack(STYLE_CALLTIP, cr_tmp);
+
+	//
+	// --------- INSTANCIATE FT LEXER -------------------
+	//
+
+	// TODO: fix manifest
+	FARPROC lexer_tf_create_fun = GetProcAddress(m_lexillaScope.GetModule(), LEXILLA_CREATELEXER);
+	Lexilla::CreateLexerFn lexilla_tf_create = (Lexilla::CreateLexerFn)(lexer_tf_create_fun);
+
+	char lexer_tf_name[MAX_PATH] = "titleformat";
+	void* pLexer = lexilla_tf_create(lexer_tf_name);
+	::SendMessage(m_editor, SCI_SETILEXER, 0, (LPARAM)pLexer);
+
+	// --
+
+	char outlen[MAX_PATH];
+	if ((sciLexer.GetLexerLanguage(outlen) > 0))
 	{
 		sciLexer.SetProperty("fold", "1");
 
-		m_privateCall = (ILexerTitleformatPrivateCall *) sciLexer.PrivateLexerCall(SPC_TITLEFORMAT_GETINTERFACE, NULL);
-
 		// Comments
-		sciLexer.StyleSetFore(1 /*SCE_TITLEFORMAT_COMMENTLINE*/, RGB(0, 128, 0));
-		sciLexer.StyleSetFore(1 + 64 /*SCE_TITLEFORMAT_COMMENTLINE | inactive*/, BlendColor(RGB(0, 128, 0), 1, background, 1));
+		tc = get_lex_color(mlex_colors["comment"]);
+		COLORREF crcol = RGB(tc.r, tc.g, tc.b);
+
+		sciLexer.StyleSetFore(1 /*SCE_TITLEFORMAT_COMMENTLINE*/, crcol);
+		sciLexer.StyleSetFore(1 + 64 /*SCE_TITLEFORMAT_COMMENTLINE*/, BlendColor(crcol, 1, background, 1));
 
 		// Operators
-		sciLexer.StyleSetFore(2 /*SCE_TITLEFORMAT_OPERATOR*/, RGB(0, 0, 0));
+		tc = get_lex_color(mlex_colors["operator"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
+
+		sciLexer.StyleSetFore(2, /*SCE_TITLEFORMAT_OPERATOR*/crcol);
 		sciLexer.StyleSetBold(2 /*SCE_TITLEFORMAT_OPERATOR*/, true);
-		sciLexer.StyleSetFore(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, BlendColor(RGB(0, 0, 0), 1, background, 1));
+		sciLexer.StyleSetFore(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, BlendColor(crcol, 1, background, 1));
 		sciLexer.StyleSetBold(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, true);
 
 		// Fields
-		sciLexer.StyleSetFore(3 /*SCE_TITLEFORMAT_FIELD*/, RGB(0, 0, 192));
-		sciLexer.StyleSetFore(3 + 64 /*SCE_TITLEFORMAT_FIELD | inactive*/, BlendColor(RGB(0, 0, 192), 1, background, 1));
+		tc = get_lex_color(mlex_colors["field"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
+
+		sciLexer.StyleSetFore(3 /*SCE_TITLEFORMAT_FIELD*/, crcol);
+		sciLexer.StyleSetFore(3 + 64 /*SCE_TITLEFORMAT_FIELD | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Strings (Single quoted string)
-		sciLexer.StyleSetFore(4 /*SCE_TITLEFORMAT_STRING*/, RGB(0, 0, 0));
+		tc = get_lex_color(mlex_colors["literal string"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
+
+		sciLexer.StyleSetFore(4 /*SCE_TITLEFORMAT_STRING*/, /*foreground*/crcol);
 		sciLexer.StyleSetItalic(4 /*SCE_TITLEFORMAT_STRING*/, true);
-		sciLexer.StyleSetFore(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, BlendColor(RGB(0, 0, 0), 1, background, 1));
+		sciLexer.StyleSetFore(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, BlendColor(crcol, 1, background, 1));
 		sciLexer.StyleSetItalic(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, true);
 
 		// Text (Unquoted string)
-		sciLexer.StyleSetFore(5 /*SCE_TITLEFORMAT_LITERALSTRING*/, RGB(0, 0, 0));
-		sciLexer.StyleSetFore(5 + 64 /*SCE_TITLEFORMAT_LITERALSTRING | inactive*/, BlendColor(RGB(0, 0, 0), 1, background, 1));
+		tc = get_lex_color(mlex_colors["string"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
+
+		sciLexer.StyleSetFore(5 /*SCE_TITLEFORMAT_LITERALSTRING*/, /*foreground*/crcol);
+		sciLexer.StyleSetFore(5 + 64 /*SCE_TITLEFORMAT_LITERALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Characters (%%, &&, '')
-		sciLexer.StyleSetFore(6 /*SCE_TITLEFORMAT_SPECIALSTRING*/, RGB(0, 0, 0));
-		sciLexer.StyleSetFore(6 + 64/*SCE_TITLEFORMAT_SPECIALSTRING | inactive*/, BlendColor(RGB(0, 0, 0), 1, background, 1));
+		tc = get_lex_color(mlex_colors["special string"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
 
-		// Functions
-		sciLexer.StyleSetFore(7 /*SCE_TITLEFORMAT_IDENTIFIER*/, RGB(192, 0, 192));
-		sciLexer.StyleSetFore(7 + 64 /*SCE_TITLEFORMAT_IDENTIFIER | inactive*/, BlendColor(RGB(192, 0, 192), 1, background, 1));
+		sciLexer.StyleSetFore(6 /*SCE_TITLEFORMAT_SPECIALSTRING*/, /*foreground*/crcol);
+		sciLexer.StyleSetFore(6 + 64/*SCE_TITLEFORMAT_SPECIALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
+
+		// Functions (todo:identifier?)
+		tc = get_lex_color(mlex_colors["identifier"]);
+		crcol = RGB(tc.r, tc.g, tc.b);
+		sciLexer.StyleSetFore(7, /*SCE_TITLEFORMAT_IDENTIFIER*/ crcol);
+		sciLexer.StyleSetFore(7 + 64 /*SCE_TITLEFORMAT_IDENTIFIER | inactive*/, BlendColor(crcol, 1, background, 1));
 	}
 
 	// inactive code
+
 	//sciLexer.IndicSetStyle(indicator_inactive_code, INDIC_DIAGONAL);
 	//sciLexer.IndicSetFore(indicator_inactive_code, RGB(64, 64, 64));
+
+	tfRGB col = vindicator_colors[0].second;
+	COLORREF crcol = RGB(col.r, col.g, col.b);
+
 	sciLexer.IndicSetStyle(indicator_inactive_code, INDIC_STRAIGHTBOX);
-	sciLexer.IndicSetFore(indicator_inactive_code, RGB(0, 0, 0));
+	sciLexer.IndicSetFore(indicator_inactive_code, crcol);
 	sciLexer.IndicSetUnder(indicator_inactive_code, true);
+
 	sciLexer.Call(SCI_INDICSETALPHA, indicator_inactive_code, 20);
 	sciLexer.Call(SCI_INDICSETOUTLINEALPHA, indicator_inactive_code, 20);
 
 	// selected fragment
+	col = vindicator_colors[1].second;
+	crcol = RGB(col.r, col.g, col.b);
+
 	sciLexer.IndicSetStyle(indicator_fragment, INDIC_STRAIGHTBOX);
-	sciLexer.IndicSetFore(indicator_fragment, RGB(64, 128, 255));
+	sciLexer.IndicSetFore(indicator_fragment, RGB(255,0,0)/*crcol*/);
 	sciLexer.IndicSetUnder(indicator_fragment, true);
 
 	// errors
-	sciLexer.IndicSetStyle(indicator_error, INDIC_SQUIGGLE);
-	sciLexer.IndicSetFore(indicator_error, RGB(255, 0, 0));
+	col = vindicator_colors[2].second;
+	crcol = RGB(col.r, col.g, col.b);
 
+	sciLexer.IndicSetStyle(indicator_error, INDIC_SQUIGGLE);
+	sciLexer.IndicSetFore(indicator_error, crcol);
 }
 
 void CTitleFormatSandboxDialog::SetupPreviewStyles(CSciLexerCtrl sciLexer)
@@ -295,25 +420,139 @@ void CTitleFormatSandboxDialog::SetupPreviewStyles(CSciLexerCtrl sciLexer)
 	LoadMarkerIcon(sciLexer, 0, MAKEINTRESOURCE(IDI_FUGUE_CROSS));
 	LoadMarkerIcon(sciLexer, 1, MAKEINTRESOURCE(IDI_FUGUE_TICK));
 	LoadMarkerIcon(sciLexer, 2, MAKEINTRESOURCE(IDI_FUGUE_EXCLAMATION));
+}
 
-	sciLexer.StyleSetFore(STYLE_DEFAULT, RGB(0, 0, 0));
-	sciLexer.StyleSetBack(STYLE_DEFAULT, RGB(255, 255, 255));
+Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
+{
+	if (id == IDC_SCRIPT) {
+	
+		if (m_pScript == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
+		{
+			m_pScript = CreateScintillaControl();
+			HWND hwndScript = ::GetDlgItem(m_hWnd,id);
 
-	sciLexer.SetSelFore(true, RGB(255, 255, 255));
-	sciLexer.SetSelBack(true, RGB(51, 153, 255));
+			CRect rc;
+			
+			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pScript.get());
+			
+			::GetWindowRect(hwndScript, rc);
+			//fake signature. instead reuse existing instance. also inheriting to comply with ATL ctrl license
+			//if (!m_pEdit->Create(/*m_hWnd*/hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, IDC_EDIT1, 0, 0)) {
+			if (tmpEx->Create(hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
+				//..
+			}
+			else {
+				//..
+			}
+		}
+		return *m_pScript;
+	}
+	else if (id == IDC_VALUE) {
+
+		if (m_pValue == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
+		{
+			m_pValue = CreateScintillaControl();
+			HWND hwndScript = ::GetDlgItem(m_hWnd, id);
+
+			CRect rc;
+			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pValue.get());
+			
+			::GetWindowRect(hwndScript, rc);
+
+			//fake create signature, reuse existing instance
+			if (tmpEx->Create(hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
+				//..
+			}
+			else {
+				//..
+			}
+		}
+		return *m_pValue;
+	}
+	else {
+		return *((Scintilla::CScintillaCtrl*)nullptr);
+	}
+}
+
+std::unique_ptr<Scintilla::CScintillaCtrl> CTitleFormatSandboxDialog::CreateScintillaControl()
+{
+	return std::make_unique<Scintilla::CScintillaCtrl>();
 }
 
 BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam)
 {
-	m_editor.Attach(GetDlgItem(IDC_SCRIPT));
-	m_preview.Attach(GetDlgItem(IDC_VALUE));
+
+	colors_json cj;
+	std::vector<std::pair<size_t, tfRGB>> vcolors;
+
+	CWindowDC dc(core_api::get_main_window());
+	bool bdark = false;
+	
+	//todo: wine testing
+	//if (IsWine() && !is_wine_light_theme) {
+		...
+	//}
+	//else {
+		bdark = m_dark.IsDark();
+	//}
+
+	cj.read_colors_json(bdark);
+
+	m_editor = GetDlgItem(IDC_SCRIPT);
+	m_preview = GetDlgItem(IDC_VALUE);
+	
+	//auto res = Scintilla_RegisterClasses(m_editor);
+	//m_editor.Attach(GetDlgItem(IDC_SCRIPT));
+	//m_preview.Attach(GetDlgItem(IDC_VALUE));
+
 	m_treeScript.Attach(GetDlgItem(IDC_TREE));
 
-	m_editor.SetCodePage(SC_CP_UTF8);
-	m_editor.SetModEventMask(SC_MOD_INSERTTEXT | SC_MOD_DELETETEXT);
-	m_editor.SetMouseDwellTime(500);
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
 
-	m_preview.SetCodePage(SC_CP_UTF8);
+	// ---------- VALUE PREVIEW PANEL --------------------
+	
+	// PANEL BACK/FOREGROUND
+
+	tfRGB col = get_gen_color(mgen_colors["background"]);
+	COLORREF crcol = RGB(col.r, col.g, col.b);
+
+	rCtrlValue.StyleSetBack(STYLE_DEFAULT, crcol);
+
+	TreeView_SetBkColor(m_treeScript, crcol);
+
+	col = get_gen_color(mgen_colors["foreground"]);
+	crcol = RGB(col.r, col.g, col.b);
+
+	rCtrlValue.StyleSetFore(STYLE_DEFAULT, crcol);
+
+	// VALUE SELECTION BACK/FOREGROUND/HIGHLIGHT
+
+	col = get_gen_color(mgen_colors["selection background"]);
+
+	crcol = RGB(col.r, col.g, col.b);
+	rCtrlValue.SetSelBack(STYLE_DEFAULT, crcol);
+
+	col = get_gen_color(mgen_colors["selection foreground"]);
+	crcol = RGB(col.r, col.g, col.b);
+	//font color when draggin cursor over text
+	rCtrlValue.SetSelFore(STYLE_DEFAULT, crcol/*RGB(255,0,0)*/);
+
+
+	col = get_gen_color(mgen_colors["marker foreground"]);
+	crcol = RGB(col.r, col.g, col.b);
+
+	rCtrlValue.MarkerSetFore(STYLE_DEFAULT, crcol);
+
+	col = get_gen_color(mgen_colors["marker background"]);
+	crcol = RGB(col.r, col.g, col.b);
+
+	rCtrlValue.MarkerSetBack(STYLE_DEFAULT, crcol);
+
+
+	rCtrlScript.SetCodePage(SC_CP_UTF8);
+	rCtrlScript.SetModEventMask(Scintilla::ModificationFlags::InsertText | Scintilla::ModificationFlags::DeleteText);
+	rCtrlValue.SetCodePage(SC_CP_UTF8);
 
 	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
 
@@ -322,7 +561,7 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	SetupPreviewStyles(m_preview);
 
-	m_preview.SetReadOnly(true);
+	rCtrlValue.SetReadOnly(true);
 
 #if defined USE_EXPLORER_THEME
 	SetWindowTheme(m_treeScript, L"Explorer", NULL);
@@ -342,17 +581,21 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	m_script_update_pending = true;
 	//m_updating_fragment = false;
 
+	rCtrlScript = GetCtrl(IDC_SCRIPT);
 
-	m_editor.SetText(cfg_format);
-	m_editor.SetEmptySelection(0);
-	m_editor.EmptyUndoBuffer();
-	m_editor.SetUndoCollection(true);
+	rCtrlScript.SetText(cfg_format);
+	rCtrlScript.SetEmptySelection(0);
+	rCtrlScript.EmptyUndoBuffer();
+	rCtrlScript.SetUndoCollection(true);
 
 	m_accel.LoadAccelerators(IDD);
 
 	static_api_ptr_t<message_loop>()->add_message_filter(this);
 
-	g_wndInstance = *this;
+	g_wndInstance = static_cast<ATL::CWindow>(*this);
+
+	m_dark.AddDialog(m_hWnd);
+	m_dark.AddControls(m_hWnd);
 
 	return TRUE;
 }
@@ -360,8 +603,8 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 void CTitleFormatSandboxDialog::OnDestroy()
 {
 	g_wndInstance = NULL;
-
 	static_api_ptr_t<message_loop>()->remove_message_filter(this);
+
 }
 
 void CTitleFormatSandboxDialog::OnCancel(UINT uNotifyCode, int nID, CWindow wndCtl)
@@ -371,7 +614,7 @@ void CTitleFormatSandboxDialog::OnCancel(UINT uNotifyCode, int nID, CWindow wndC
 
 LRESULT CTitleFormatSandboxDialog::OnScriptModified(LPNMHDR pnmh)
 {
-	//console::formatter() << "OnScriptModified";
+	//console::formatter() << "[" << COMPONENT_NAME << "] " << "OnScriptModified";
 	if (m_script_update_pending)
 	{
 		KillTimer(ID_SCRIPT_UPDATE_TIMER);
@@ -409,8 +652,11 @@ LRESULT CTitleFormatSandboxDialog::OnScriptUpdateUI(LPNMHDR pnmh)
 
 	if (!m_script_update_pending && GetFocus() == m_editor)
 	{
-		int selStart = m_editor.GetSelectionStart();
-		int selEnd = m_editor.GetSelectionEnd();
+
+		auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+		int selStart = rCtrlScript.GetSelectionStart();
+		int selEnd = rCtrlScript.GetSelectionEnd();
 
 		UpdateFragment(selStart, selEnd);
 	}
@@ -455,27 +701,57 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 				ast::node *n = (ast::node *)pnmcd->nmcd.lItemlParam;
 				bool active = m_debugger.test_value(n);
 
-				COLORREF colorBackground = RGB(255, 255, 255);
-				
+				// MAIN BACK/FORE COLORS
+
+				auto tc = get_gen_color(mgen_colors["background"]);
+				COLORREF background = RGB(tc.r, tc.g, tc.b);
+
+				tc = {};
+				COLORREF crcol = 0;
+
 				switch (n->kind())
 				{
 				case ast::node::kind_block:
-					pnmcd->clrText = active ? RGB(0, 0, 0) : BlendColor(RGB(0, 0, 0), 1, colorBackground, 1);
+					//tree root 
+					tc = get_lex_color(mlex_colors["special string"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_call:
-					pnmcd->clrText = active ? RGB(192, 0, 192) : BlendColor(RGB(192, 0, 192), 1, colorBackground, 1);
+
+					tc = get_lex_color(mlex_colors["identifier"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = active ?crcol : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_comment:
-					pnmcd->clrText = RGB(0, 192, 0);
+
+					tc = get_lex_color(mlex_colors["comment"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = crcol;
 					break;
 				case ast::node::kind_condition:
-					pnmcd->clrText = active ? RGB(0, 0, 0) : BlendColor(RGB(0, 0, 0), 1, colorBackground, 1);
+
+					tc = get_lex_color(mlex_colors["operator"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_field:
-					pnmcd->clrText = active ? RGB(0, 0, 192) : BlendColor(RGB(0, 0, 192), 1, colorBackground, 1);
+
+					tc = get_lex_color(mlex_colors["Keyword1"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = active ? crcol: BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_string:
-					pnmcd->clrText = active ? RGB(0, 0, 0) : BlendColor(RGB(0, 0, 0), 1, colorBackground, 1);
+
+					tc = get_lex_color(mlex_colors["string"]);
+					crcol = RGB(tc.r, tc.g, tc.b);
+
+					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
 					break;
 				}
 			}
@@ -507,9 +783,9 @@ void CTitleFormatSandboxDialog::UpdateScript()
 	ClearFragment();
 	ClearInactiveCodeIndicator();
 
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	CStringA format;
-	m_editor.GetText(format);
-	cfg_format = format;
+	rCtrlScript.GetText(format);
 
 	pfc::string_formatter errors;
 
@@ -522,7 +798,7 @@ void CTitleFormatSandboxDialog::UpdateScript()
 
 		int error_count = m_debugger.get_parser_errors(errors);
 
-		console::formatter() << "[foo_tfsandbox] Script parsed in "<<pfc::format_float(parse_time, 6)<< " seconds";
+		console::formatter() << "[" << COMPONENT_NAME << "] " << "Script parsed in "<<pfc::format_float(parse_time, 6)<< " seconds";
 
 		if (error_count == 0)
 		{
@@ -530,16 +806,18 @@ void CTitleFormatSandboxDialog::UpdateScript()
 		}
 		else
 		{
-			m_preview.MarkerDeleteAll(-1);
-			m_preview.SetReadOnly(false);
-			m_preview.SetText(errors);
-			m_preview.SetReadOnly(true);
-			m_preview.MarkerAdd(0, 2);
+			auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
+			rCtrlValue.MarkerDeleteAll(-1);
+			rCtrlValue.SetReadOnly(false);
+			rCtrlValue.SetText(errors);
+			rCtrlValue.SetReadOnly(true);
+			rCtrlValue.MarkerAdd(0, 2);
+
 		}
 	}
 	catch (std::exception const & exc)
 	{
-		console::formatter() << "Exception in UpdateScript(): " << exc;
+		console::formatter() << "[" << COMPONENT_NAME << "]" <<  "Exception in UpdateScript(): " << exc;
 	}
 }
 
@@ -643,7 +921,7 @@ void CTitleFormatSandboxDialog::UpdateScriptSyntaxTree()
 	ast::visitor_build_syntax_tree(m_debugger).run(m_treeScript, m_debugger.get_root());
 
 	double build_time = build_timer.query();
-	console::formatter() << "[foo_tfsandbox] Script structure built in " << pfc::format_float(build_time, 6) << " seconds";
+	console::formatter() << "[" << COMPONENT_NAME << "] " << "Script structure built in " << pfc::format_float(build_time, 6) << " seconds";
 }
 
 void CTitleFormatSandboxDialog::UpdateTrace()
@@ -662,29 +940,32 @@ void CTitleFormatSandboxDialog::UpdateTrace()
 
 	double trace_time = trace_timer.query();
 
-	console::formatter() << "[foo_tfsandbox] Script traced in " << pfc::format_float(trace_time, 6) << " seconds";
+	console::formatter() << "[" << COMPONENT_NAME << "] " << "Script traced in " << pfc::format_float(trace_time, 6) << " seconds";
 
 	UpdateInactiveCodeIndicator();
 	UpdateScriptSyntaxTree();
-
-	UpdateFragment(m_editor.GetSelectionStart(), m_editor.GetSelectionEnd());
+	
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	UpdateFragment(rCtrlScript.GetSelectionStart(), rCtrlScript.GetSelectionEnd());
 }
 
 void CTitleFormatSandboxDialog::ClearInactiveCodeIndicator()
 {
-	if (m_privateCall != NULL)
+	//todo
+	/*if (false && m_privateCall != NULL)
 	{
 		m_privateCall->ClearInactiveRanges();
 	}
 	else
-	{
-		m_editor.SetIndicatorCurrent(indicator_inactive_code);
-		m_editor.SetIndicatorValue(1);
-		m_editor.IndicatorClearRange(0, m_editor.GetTextLength());
-	}
+	{*/
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	rCtrlScript.SetIndicatorCurrent(indicator_inactive_code);
+	rCtrlScript.SetIndicatorValue(1);
+	rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
+	
 }
 
-void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
+voidCTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 {
 	inactive_range_walker walker(m_debugger);
 	if (m_privateCall != NULL)
@@ -696,40 +977,47 @@ void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 		}
 	}
 	else
-	{
-		m_editor.SetIndicatorCurrent(indicator_inactive_code);
-		m_editor.SetIndicatorValue(1);
-		m_editor.IndicatorClearRange(0, m_editor.GetTextLength());
+	{*/
 
-		if (m_debugger.get_parser_errors() == 0)
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+	rCtrlScript.SetIndicatorCurrent(indicator_inactive_code);
+	rCtrlScript.SetIndicatorValue(1);
+	rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
+
+	if (m_debugger.get_parser_errors() == 0)
+	{
+		inactive_range_walker walker(m_debugger);
+		size_t count = walker.inactiveRanges.size();
+		for (size_t index = 0; index < count; ++index)
 		{
-			inactive_range_walker walker(m_debugger);
-			size_t count = walker.inactiveRanges.size();
-			for (size_t index = 0; index < count; ++index)
-			{
-				int position = walker.inactiveRanges[index].cpMin;
-				int fillLength = walker.inactiveRanges[index].cpMax - walker.inactiveRanges[index].cpMin;
-				m_editor.IndicatorFillRange(position, fillLength);
-			}
+			int position = walker.inactiveRanges[index].cpMin;
+			int fillLength = walker.inactiveRanges[index].cpMax - walker.inactiveRanges[index].cpMin;
+
+			rCtrlScript.IndicatorFillRange(position, fillLength);
+
 		}
 	}
+
 }
 
 void CTitleFormatSandboxDialog::ClearFragment()
 {
 	m_selfrag = ast::fragment();
-
-	if (m_privateCall != NULL)
+	//todo
+	/*if (false && m_privateCall != NULL)
 	{
 		m_privateCall->ClearInactiveRanges();
 		m_editor.Colourise(0, m_editor.GetLength());
 	}
 	else
-	{
-		m_editor.SetIndicatorCurrent(indicator_fragment);
-		m_editor.SetIndicatorValue(1);
-		m_editor.IndicatorClearRange(0, m_editor.GetTextLength());
-	}
+	{*/
+
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	rCtrlScript.SetIndicatorCurrent(indicator_fragment);
+	rCtrlScript.SetIndicatorValue(1);
+	rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
+
 }
 
 void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
@@ -771,32 +1059,37 @@ void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
 				}
 			}
 
-			m_editor.SetIndicatorCurrent(indicator_fragment);
-			m_editor.SetIndicatorValue(1);
-			m_editor.IndicatorClearRange(0, m_editor.GetTextLength());
+			auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+			rCtrlScript.SetIndicatorCurrent(indicator_fragment);
+			rCtrlScript.SetIndicatorValue(1);
+			rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
+
 			for (t_size index = 0; index < selfrag.get_count(); ++index)
 			{
 				ast::position pos = selfrag[index]->get_position();
 				if (pos.start != -1)
 				{
-					m_editor.IndicatorFillRange(pos.start, pos.end - pos.start);
+					rCtrlScript.IndicatorFillRange(pos.start, pos.end - pos.start);
 				}
 			}
 
-			m_preview.MarkerDeleteAll(-1);
-			m_preview.SetReadOnly(false);
-			m_preview.SetText(fragment_string_value);
-			m_preview.SetReadOnly(true);
+			auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
+
+			rCtrlValue.MarkerDeleteAll(-1);
+			rCtrlValue.SetReadOnly(false);
+			rCtrlValue.SetText(fragment_string_value);
+			rCtrlValue.SetReadOnly(true);
 
 			if (fragment_value_defined)
 			{
-				m_preview.MarkerAdd(0, fragment_bool_value ? 1 : 0);
+				rCtrlValue.MarkerAdd(0, fragment_bool_value ? 1 : 0);
 			}
 		}
 	}
 	catch (std::exception const & exc)
 	{
-		console::formatter() << "Exception in UpdateFragment(): " << exc;
+		console::formatter() << "[" << COMPONENT_NAME << "] " << "Exception in UpdateFragment(): " << exc;
 	}
 }
 
@@ -842,12 +1135,18 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 
 				pfc::string_formatter string_value;
 				bool bool_value;
+
+				auto & rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
 				if (m_debugger.get_value(frag[0], string_value, bool_value))
 				{
+
 					int tabSize = pfc::max_t(
-						m_editor.TextWidth(STYLE_CALLTIP, "Text value: "),
-						m_editor.TextWidth(STYLE_CALLTIP, "Boolean value: "));
-					m_editor.CallTipUseStyle(tabSize);
+						rCtrlScript.TextWidth(STYLE_CALLTIP, "Text value: "),
+						rCtrlScript.TextWidth(STYLE_CALLTIP, "Boolean value: "));
+
+					rCtrlScript.CallTipUseStyle(tabSize);
+
 					bool truncated = string_value.truncate_eol() || string_value.limit_length(250, "");
 					msg << "\nText value:\t" << string_value;
 					if (truncated) msg << "...";
@@ -857,8 +1156,8 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 				{
 					msg << "\nNot evaluated";
 				}
-				m_editor.CallTipCancel();
-				m_editor.CallTipShow(pos.start, msg);
+				rCtrlScript.CallTipCancel();
+				rCtrlScript.CallTipShow(pos.start, msg);
 			}
 		}
 	}
@@ -868,12 +1167,14 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 
 LRESULT CTitleFormatSandboxDialog::OnScriptDwellEnd(LPNMHDR pnmh)
 {
-	m_editor.CallTipCancel();
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	rCtrlScript.CallTipCancel();
 	return 0;
 }
 
 LRESULT CTitleFormatSandboxDialog::OnScriptCallTipClick(LPNMHDR pnmh)
 {
-	m_editor.CallTipCancel();
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	rCtrlScript.CallTipCancel();
 	return 0;
 }

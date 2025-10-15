@@ -2,21 +2,26 @@
 
 #include "resource.h"
 
+#include "libPPUI/CDialogResizeHelper.h"
+#include "helpers/WindowPositionUtils.h"
+#include "helpers/DarkMode.h"
+
+#include "ILexer.h"
+#include "Scintilla.h"
+#include "atlscilexer.h"
+#include "ScintillaCtrl.h"
+
+#include "LibraryScope.h"
 #include "titleformat_debug.h"
 #include "titleformat_analysis.h"
 
-#include "atlscilexer.h"
-
-#include "LibraryScope.h"
-
-#include "ILexerTitleformat.h"
 
 class CTitleFormatSandboxDialog :
 	public CDialogImpl<CTitleFormatSandboxDialog>,
 	public message_filter
 {
 public:
-	enum { IDD = IDR_TFDBG };
+	enum { IDD = IDD_TFDLG };
 	enum { ID_SCRIPT_UPDATE_TIMER = 3451 };
 
 	enum {
@@ -27,18 +32,18 @@ public:
 		indicator_hint,
 	};
 
-	CLibraryScope m_sciLexerScope;
-	CLibraryScope m_lexTitleformatScope;
+	CLibraryScope m_lexillaScope;
+	CLibraryScope m_scintillaScope;
 
 	CAccelerator m_accel;
 
+	CDialogResizeHelper m_dlgResizeHelper;
 	cfgDialogPositionTracker m_dlgPosTracker;
-    CDialogResizeHelper m_dlgResizeHelper;
 
-	CSciLexerCtrl m_editor;
-	CSciLexerCtrl m_preview;
+	fb2k::CDarkModeHooks m_dark;
 
-	ILexerTitleformatPrivateCall * m_privateCall;
+	HWND m_editor = NULL;
+	HWND m_preview = NULL;
 
 	CTreeViewCtrl m_treeScript;
 
@@ -80,6 +85,7 @@ public:
 	void UpdateInactiveCodeIndicator();
 
 	void SetupTitleFormatStyles(CSciLexerCtrl sciLexer);
+	/*void SetupTitleFormatStyles_new();*/
 	void SetupPreviewStyles(CSciLexerCtrl sciLexer);
 
 	bool find_fragment(ast::fragment &out, int start, int end);
@@ -89,14 +95,13 @@ public:
 	// Message map and handlers
 
 	BEGIN_MSG_MAP(CTitleFormatSandboxDialog)
-        CHAIN_MSG_MAP_MEMBER(m_dlgResizeHelper)
-		CHAIN_MSG_MAP_MEMBER(m_dlgPosTracker)
+		CHAIN_MSG_MAP_MEMBER(m_dlgResizeHelper) //1
+		CHAIN_MSG_MAP_MEMBER(m_dlgPosTracker)   //2
 		MSG_WM_INITDIALOG(OnInitDialog)
 		MSG_WM_DESTROY(OnDestroy)
 		MSG_WM_TIMER(OnTimer)
 		COMMAND_HANDLER_EX(IDCANCEL, BN_CLICKED, OnCancel)
 		COMMAND_ID_HANDLER_EX(ID_EDIT_SELECT_ALL, OnSelectAll)
-		//NOTIFY_HANDLER_EX(IDC_SCRIPT, SCN_STYLENEEDED, OnScriptStyleNeeded)
 		NOTIFY_HANDLER_EX(IDC_SCRIPT, SCN_MODIFIED, OnScriptModified)
 		NOTIFY_HANDLER_EX(IDC_SCRIPT, SCN_UPDATEUI, OnScriptUpdateUI)
 		NOTIFY_HANDLER_EX(IDC_SCRIPT, SCN_DWELLSTART, OnScriptDwellStart)
@@ -118,4 +123,11 @@ public:
 	LRESULT OnScriptCallTipClick(LPNMHDR pnmh);
 	LRESULT OnTreeSelChanged(LPNMHDR pnmh);
 	LRESULT OnTreeCustomDraw(LPNMHDR pnmh);
+
+protected:
+
+	Scintilla::CScintillaCtrl& GetCtrl(int id);
+	std::unique_ptr<Scintilla::CScintillaCtrl> CreateScintillaControl();
+	std::unique_ptr<Scintilla::CScintillaCtrl> m_pScript;	//The scintilla control
+	std::unique_ptr<Scintilla::CScintillaCtrl> m_pValue;	//The scintilla control
 };
