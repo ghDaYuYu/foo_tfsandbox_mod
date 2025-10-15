@@ -8,8 +8,9 @@ class mainmenu_commands_tfsandbox : public mainmenu_commands_impl_single
 public:
 	virtual GUID get_command()
 	{
-		// {819CD6A9-A492-45cd-9BCA-DFE3A6CF2BD9}
-		static const GUID guid = { 0x819cd6a9, 0xa492, 0x45cd, { 0x9b, 0xca, 0xdf, 0xe3, 0xa6, 0xcf, 0x2b, 0xd9 } };
+		// {C3503BB8-2665-418C-9E05-6F9602B12F6A} mod
+		static const GUID guid = { 0xc3503bb8, 0x2665, 0x418c, { 0x9e, 0x5, 0x6f, 0x96, 0x2, 0xb1, 0x2f, 0x6a } };
+
 		return guid;
 	}
 
