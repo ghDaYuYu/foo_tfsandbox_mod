@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 
 #include <fcntl.h>
 #include <io.h>
@@ -57,7 +57,9 @@ bool read_group(json_t* json, pfc::string8 groupname, const std::map<std::string
 	size_t index;
 	json_t* js_wobj;
 
-	json_array_foreach(json, index, js_wobj) {
+	try {
+
+		json_array_foreach(json, index, js_wobj) {
 
 		if (!json_is_object(js_wobj)) return false;
 
@@ -122,6 +124,10 @@ bool read_group(json_t* json, pfc::string8 groupname, const std::map<std::string
 			}
 		} // for each
 		return true;
+	}
+}
+	catch (...) {
+		throw exception_io();
 	}
 	return res;
 }

@@ -218,7 +218,6 @@
     <ClInclude Include="titleformat_node_filter.h" />
     <ClInclude Include="titleformat_syntax.h" />
     <ClInclude Include="titleformat_visitor_impl.h" />
-    <ClInclude Include="utils.h" />
     <ClInclude Include="colors_json.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
