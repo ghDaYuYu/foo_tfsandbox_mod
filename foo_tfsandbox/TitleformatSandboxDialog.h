@@ -2,6 +2,8 @@
 
 #include "resource.h"
 
+const size_t kMaxBuffer = 4096;
+
 #include "libPPUI/CDialogResizeHelper.h"
 #include "helpers/WindowPositionUtils.h"
 #include "helpers/DarkMode.h"

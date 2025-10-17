@@ -395,7 +395,7 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 	crcol = RGB(col.r, col.g, col.b);
 
 	sciLexer.IndicSetStyle(indicator_fragment, INDIC_STRAIGHTBOX);
-	sciLexer.IndicSetFore(indicator_fragment, RGB(255,0,0)/*crcol*/);
+	sciLexer.IndicSetFore(indicator_fragment, crcol);
 	sciLexer.IndicSetUnder(indicator_fragment, true);
 
 	// errors
@@ -429,21 +429,18 @@ Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
 		if (m_pScript == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
 		{
 			m_pScript = CreateScintillaControl();
-			HWND hwndScript = ::GetDlgItem(m_hWnd,id);
-
-			CRect rc;
-			
 			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pScript.get());
-			
-			::GetWindowRect(hwndScript, rc);
-			//fake signature. instead reuse existing instance. also inheriting to comply with ATL ctrl license
-			//if (!m_pEdit->Create(/*m_hWnd*/hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, IDC_EDIT1, 0, 0)) {
-			if (tmpEx->Create(hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
+			CRect rc;
+			HWND hwnd = ::GetDlgItem(m_hWnd,id);
+			::GetWindowRect(hwnd, rc);
+			//fake, reuse existing instance
+			if (tmpEx->Create(hwnd, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
 				//..
 			}
 			else {
 				//..
 			}
+			tmpEx = nullptr;
 		}
 		return *m_pScript;
 	}
@@ -452,20 +449,19 @@ Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
 		if (m_pValue == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
 		{
 			m_pValue = CreateScintillaControl();
-			HWND hwndScript = ::GetDlgItem(m_hWnd, id);
-
-			CRect rc;
 			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pValue.get());
 			
-			::GetWindowRect(hwndScript, rc);
-
-			//fake create signature, reuse existing instance
-			if (tmpEx->Create(hwndScript, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
+			CRect rc;
+			HWND hwnd = ::GetDlgItem(m_hWnd, id);
+			::GetWindowRect(hwnd, rc);
+			//fake, reuse existing instance
+			if (tmpEx->Create(hwnd, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
 				//..
 			}
 			else {
 				//..
 			}
+			tmpEx = nullptr;
 		}
 		return *m_pValue;
 	}
@@ -519,8 +515,6 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	rCtrlValue.StyleSetBack(STYLE_DEFAULT, crcol);
 
-	TreeView_SetBkColor(m_treeScript, crcol);
-
 	col = get_gen_color(mgen_colors["foreground"]);
 	crcol = RGB(col.r, col.g, col.b);
 
@@ -538,7 +532,6 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	//font color when draggin cursor over text
 	rCtrlValue.SetSelFore(STYLE_DEFAULT, crcol/*RGB(255,0,0)*/);
 
-
 	col = get_gen_color(mgen_colors["marker foreground"]);
 	crcol = RGB(col.r, col.g, col.b);
 
@@ -552,6 +545,8 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	rCtrlScript.SetCodePage(SC_CP_UTF8);
 	rCtrlScript.SetModEventMask(Scintilla::ModificationFlags::InsertText | Scintilla::ModificationFlags::DeleteText);
+	rCtrlScript.SetMouseDwellTime(500);
+
 	rCtrlValue.SetCodePage(SC_CP_UTF8);
 
 	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
@@ -572,7 +567,12 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 #if defined(USE_EXPLORER_THEME)
 	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 #else
-	imageList.CreateFromImage(IDB_SYMBOLS, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP);
+	if (m_dark.IsDark()) {
+		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
+	}
+	else {
+		imageList.CreateFromImage(IDB_SYMBOLS, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP);
+	}
 #endif
 	imageList.SetOverlayImage(6, 1);
 	
@@ -720,7 +720,7 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 					break;
 				case ast::node::kind_call:
 
-					tc = get_lex_color(mlex_colors["identifier"]);
+					tc = get_lex_color(mlex_colors["field"]);
 					crcol = RGB(tc.r, tc.g, tc.b);
 
 					pnmcd->clrText = active ?crcol : BlendColor(crcol, 1, background, 1);
@@ -784,8 +784,10 @@ void CTitleFormatSandboxDialog::UpdateScript()
 	ClearInactiveCodeIndicator();
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
-	CStringA format;
-	rCtrlScript.GetText(format);
+
+	auto illa_wide = rCtrlScript.GetText(kMaxBuffer);
+	auto illa_utf8 = Scintilla::CScintillaCtrl::W2UTF8(illa_wide, -1);
+	illa_wide.ReleaseBuffer();
 
 	pfc::string_formatter errors;
 
@@ -793,7 +795,9 @@ void CTitleFormatSandboxDialog::UpdateScript()
 	{
 		pfc::hires_timer parse_timer;
 		parse_timer.start();
-		m_debugger.parse(format);
+		m_debugger.parse(illa_utf8);
+		illa_utf8.ReleaseBuffer();
+
 		double parse_time = parse_timer.query();
 
 		int error_count = m_debugger.get_parser_errors(errors);
@@ -812,7 +816,6 @@ void CTitleFormatSandboxDialog::UpdateScript()
 			rCtrlValue.SetText(errors);
 			rCtrlValue.SetReadOnly(true);
 			rCtrlValue.MarkerAdd(0, 2);
-
 		}
 	}
 	catch (std::exception const & exc)
@@ -965,10 +968,10 @@ void CTitleFormatSandboxDialog::ClearInactiveCodeIndicator()
 	
 }
 
-voidCTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
+void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 {
 	inactive_range_walker walker(m_debugger);
-	if (m_privateCall != NULL)
+	/*if (m_privateCall != NULL)
 	{
 		if (!walker.inactiveRanges.empty())
 		{

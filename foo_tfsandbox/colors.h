@@ -33,7 +33,7 @@ inline std::vector < std::pair<size_t, tfRGB>> vlex_colors = {
 	/*literal string*/   { 5,{   0,   0,   0}},
 	/*special string*/   { 6,{   0,   0,   0}},
 	/*field*/            { 7,{   0,   0, 192}},
-	/*Keyword1*/         { 8,{   0,   0,   0}}, //Tree identities, e.j. %artist%
+	/*Keyword1*/         { 8,{   0,   0,   0}},
 	/*Keyword2*/         { 9,{   0,   0,   0}},
 	/*Keyword3*/         {10,{   0,   0,   0}},
 	/*Keyword4*/         {11,{   0,   0,   0}}
