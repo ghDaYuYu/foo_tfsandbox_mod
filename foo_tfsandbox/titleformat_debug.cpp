@@ -5,6 +5,27 @@
 #define U2W(Text) pfc::stringcvt::string_wide_from_utf8(Text).get_ptr()
 #define W2U(Text) pfc::stringcvt::string_utf8_from_wide(Text).get_ptr()
 
+// {DF2FBB74-E388-42DA-A62F-E89C6B1EEB61}
+static const GUID guid_tfsandbox_branch =
+{ 0xdf2fbb74, 0xe388, 0x42da, { 0xa6, 0x2f, 0xe8, 0x9c, 0x6b, 0x1e, 0xeb, 0x61 } };
+
+// {59800CE1-1B77-49C7-A1DD-2A1E3B54E1D4}
+static const GUID guid_cfg_adv_max_buffer =
+{ 0x59800ce1, 0x1b77, 0x49c7, { 0xa1, 0xdd, 0x2a, 0x1e, 0x3b, 0x54, 0xe1, 0xd4 } };
+
+// {ED58BB7C-FEEC-4D19-95F2-9424DD0F5284}
+static const GUID guid_cfg_adv_max_buffer_disables_tree =
+{ 0xed58bb7c, 0xfeec, 0x4d19, { 0x95, 0xf2, 0x94, 0x24, 0xdd, 0xf, 0x52, 0x84 } };
+
+enum {
+	order_max_buffer,
+	order_max_buffer_disables_tree,
+};
+
+static advconfig_branch_factory g_advconfigBranch("Title Formatting Sandbox Mod", guid_tfsandbox_branch, advconfig_branch::guid_branch_tools, 0);
+static advconfig_integer_factory cfg_adv_max_buffer("Max trace buffering (kB)", "foo_tfsandbox_mod.max_buffer", guid_cfg_adv_max_buffer, guid_tfsandbox_branch, order_max_buffer, 32, 0 /*minimum value*/, 1024 /*maximum value*/);
+static advconfig_checkbox_factory cfg_adv_max_buffer_disables_tree("Max trace buffer disables tree parsing", "foo_tfsandbox_mod.max_buffer_disables_tree", guid_cfg_adv_max_buffer_disables_tree, guid_tfsandbox_branch, order_max_buffer_disables_tree, true);
+
 void titleformat_debugger_environment::reset()
 {
 	m_trace.remove_all();
@@ -73,6 +94,12 @@ void titleformat_debugger::reset()
 bool titleformat_debugger::parse(const char *p_format)
 {
 	reset();
+	auto clen = strlen(p_format);
+	if ((clen > cfg_adv_max_buffer.get() * 1024) && cfg_adv_max_buffer_disables_tree.get()) {
+		++m_parser_error_count;
+		m_parser_messages = PFC_string_formatter() << "Adv. setting 'Max trace buffering' exceeded (" << cfg_adv_max_buffer.get() << " kB), tree parsing is now disabled.";
+		return false;
+	}
 	m_parser_error_count = m_script.parse(p_format, strlen(p_format), m_parser_messages);
 	return m_parser_error_count == 0;
 }

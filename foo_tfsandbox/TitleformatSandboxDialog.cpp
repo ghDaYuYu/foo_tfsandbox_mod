@@ -28,6 +28,7 @@
 #endif
 
 //#define USE_EXPLORER_THEME 1
+const size_t kMaxBuffer = 1024 * 1024;
 
 // {5BC4462B-30F5-4C9D-AE75-492725363753} mod
 static const GUID guid_cfg_format = { 0x5bc4462b, 0x30f5, 0x4c9d, { 0xae, 0x75, 0x49, 0x27, 0x25, 0x36, 0x37, 0x53 } };
