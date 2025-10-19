@@ -5,11 +5,11 @@
 #define COMPONENT_VERSION_MAJOR 1
 #define COMPONENT_VERSION_MINOR 1
 #define COMPONENT_VERSION_PATCH 0
-#define COMPONENT_VERSION_SUB_PATCH 1
+#define COMPONENT_VERSION_SUB_PATCH 0
 
 #define MAKE_STRING(text) #text
 
-#define FIX_VER
+//#define FIX_VER
 
 #ifdef FIX_VER
 #define MAKE_COMPONENT_VERSION(major,minor,patch) MAKE_STRING(major) "." MAKE_STRING(minor) "." MAKE_STRING(patch)
@@ -65,9 +65,9 @@
 "Scintilla ATL interface by Naughter, http://www.naughter.com/scintilla.html\n" \
  "\n" \
 "Change log:\n" \
-  "= v1.1.0 beta (by Dayuyu)\n" \
+  "= v1.1.0 (by Dayuyu)\n" \
   "* x64 binaries.\n" \
   "* Scintilla 5.5.7\n" \
   "* Lexilla 5.4.5\n" \
   "* fb2k SDK-2025-03-07\n" \
-  "* JSON themes."
+  "* Dark mode\n"
