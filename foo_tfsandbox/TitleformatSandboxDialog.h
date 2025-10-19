@@ -2,8 +2,6 @@
 
 #include "resource.h"
 
-const size_t kMaxBuffer = 4096;
-
 #include "libPPUI/CDialogResizeHelper.h"
 #include "helpers/WindowPositionUtils.h"
 #include "helpers/DarkMode.h"
@@ -86,6 +84,7 @@ public:
 	void ClearInactiveCodeIndicator();
 	void UpdateInactiveCodeIndicator();
 
+	void InitControls();
 	void SetupTitleFormatStyles(CSciLexerCtrl sciLexer);
 	/*void SetupTitleFormatStyles_new();*/
 	void SetupPreviewStyles(CSciLexerCtrl sciLexer);

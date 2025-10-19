@@ -183,6 +183,78 @@ void CTitleFormatSandboxDialog::ActivateDialog()
 	}
 }
 
+void CTitleFormatSandboxDialog::InitControls() {
+
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
+
+	// -----------   VALUE PREVIEW--------------------
+
+	// PANEL BACK/FOREGROUND
+
+	COLORREF crcol = get_gen_color(mgen_colors["background"]);
+
+	rCtrlValue.StyleSetBack(STYLE_DEFAULT, crcol);
+
+	crcol = get_gen_color(mgen_colors["foreground"]);
+
+	rCtrlValue.StyleSetFore(STYLE_DEFAULT, crcol);
+
+	//TreeView_SetBkColor(m_treeScript, RGB(100, 255, 100));// (m_treeScript, crcol);
+
+	// VALUE SELECTION BACK/FOREGROUND/HIGHLIGHT
+
+	crcol = get_gen_color(mgen_colors["selection background"]);
+	rCtrlValue.SetSelBack(STYLE_DEFAULT, crcol);
+
+	crcol = get_gen_color(mgen_colors["selection foreground"]);
+	//font color when draggin cursor over text
+	rCtrlValue.SetSelFore(STYLE_DEFAULT, crcol/*RGB(255,0,0)*/);
+
+	crcol = get_gen_color(mgen_colors["marker foreground"]);
+
+	rCtrlValue.MarkerSetFore(STYLE_DEFAULT, crcol);
+
+	crcol = get_gen_color(mgen_colors["marker background"]);
+
+	rCtrlValue.MarkerSetBack(STYLE_DEFAULT, crcol);
+
+	rCtrlScript.SetCodePage(SC_CP_UTF8);
+	rCtrlScript.SetModEventMask(Scintilla::ModificationFlags::InsertText | Scintilla::ModificationFlags::DeleteText);
+	rCtrlScript.SetMouseDwellTime(500);
+
+	rCtrlValue.SetCodePage(SC_CP_UTF8);
+
+	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
+
+	// Set up styles
+	SetupTitleFormatStyles(m_editor);
+
+	SetupPreviewStyles(m_preview);
+
+	rCtrlValue.SetReadOnly(true);
+
+#if defined USE_EXPLORER_THEME
+	SetWindowTheme(m_treeScript, L"Explorer", NULL);
+#endif
+
+	CImageList imageList;
+
+#if defined(USE_EXPLORER_THEME)
+	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
+#else
+	if (m_dark.IsDark()) {
+		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
+	}
+	else {
+		imageList.CreateFromImage(IDB_SYMBOLS, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP);
+	}
+#endif
+	imageList.SetOverlayImage(6, 1);
+
+	m_treeScript.SetImageList(imageList);
+}
+
 void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 {
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
@@ -204,15 +276,13 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 	COLORREF selbackground;
 	COLORREF selforeground;
 
-	auto tc = get_gen_color(mgen_colors["background"]);
-	background = RGB(tc.r, tc.g, tc.b);
-	tc = get_gen_color(mgen_colors["foreground"]);
-	foreground = RGB(tc.r, tc.g, tc.b);
+	///////////////////////////////////////////////////////////////
 
-	tc = get_gen_color(mgen_colors["selection background"]);
-	selbackground = RGB(tc.r, tc.g, tc.b);
-	tc = get_gen_color(mgen_colors["selection foreground"]);
-	selforeground = RGB(tc.r, tc.g, tc.b);
+	background = get_gen_color(mgen_colors["background"]);
+	foreground = get_gen_color(mgen_colors["foreground"]);
+
+	selbackground = get_gen_color(mgen_colors["selection background"]);
+	selforeground = get_gen_color(mgen_colors["selection foreground"]);
 
 	///////////////////////////////////////////////////////////////
 
@@ -232,13 +302,9 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 
 	// MARKERS
 
-	auto tc_mf = get_gen_color(mgen_colors["marker foreground"]);
-	auto tc_mb = get_gen_color(mgen_colors["marker background"]);
-	auto tc_msb = get_gen_color(mgen_colors["marker selected background"]);
-
-	COLORREF cr_mf = RGB(tc_mf.r, tc_mf.g, tc_mf.b);
-	COLORREF cr_mb = RGB(tc_mb.r, tc_mb.g, tc_mb.b);
-	COLORREF cr_msb = RGB(tc_msb.r, tc_msb.g, tc_msb.b);
+	COLORREF cr_mf = get_gen_color(mgen_colors["marker foreground"]);
+	COLORREF cr_mb = get_gen_color(mgen_colors["marker background"]);
+	COLORREF cr_msb = get_gen_color(mgen_colors["marker selected background"]);
 
 	for (int index = 0; index < (sizeof(markerNumbers) / sizeof(markerNumbers[0])); ++index)
 	{
@@ -279,13 +345,11 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 
 	sciLexer.StyleClearAll();
 
-	tc = get_gen_color(mgen_colors["selection foreground"]);
-	COLORREF cr_tmp = RGB(tc.r, tc.g, tc.b);
+	COLORREF cr_tmp = get_gen_color(mgen_colors["selection foreground"]);
 
 	sciLexer.SetSelFore(true, cr_tmp);
 
-	tc = get_gen_color(mgen_colors["selection background"]);
-	cr_tmp = RGB(tc.r, tc.g, tc.b);
+	cr_tmp = get_gen_color(mgen_colors["selection background"]);
 
 	sciLexer.SetSelBack(true, cr_tmp);
 
@@ -294,13 +358,11 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 
 	sciLexer.StyleSetFont(STYLE_CALLTIP, "Verdana");
 
-	tc = get_gen_color(mgen_colors["calltip foreground"]);
-	cr_tmp = RGB(tc.r, tc.g, tc.b);
+	cr_tmp = get_gen_color(mgen_colors["calltip foreground"]);
 
 	sciLexer.StyleSetFore(STYLE_CALLTIP, cr_tmp);
 
-	tc = get_gen_color(mgen_colors["calltip background"]);
-	cr_tmp = RGB(tc.r, tc.g, tc.b);
+	cr_tmp = get_gen_color(mgen_colors["calltip background"]);
 	sciLexer.StyleSetBack(STYLE_CALLTIP, cr_tmp);
 
 	//
@@ -323,15 +385,13 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 		sciLexer.SetProperty("fold", "1");
 
 		// Comments
-		tc = get_lex_color(mlex_colors["comment"]);
-		COLORREF crcol = RGB(tc.r, tc.g, tc.b);
+		COLORREF crcol = get_lex_color(mlex_colors["comment"]);
 
 		sciLexer.StyleSetFore(1 /*SCE_TITLEFORMAT_COMMENTLINE*/, crcol);
 		sciLexer.StyleSetFore(1 + 64 /*SCE_TITLEFORMAT_COMMENTLINE*/, BlendColor(crcol, 1, background, 1));
 
 		// Operators
-		tc = get_lex_color(mlex_colors["operator"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["operator"]);
 
 		sciLexer.StyleSetFore(2, /*SCE_TITLEFORMAT_OPERATOR*/crcol);
 		sciLexer.StyleSetBold(2 /*SCE_TITLEFORMAT_OPERATOR*/, true);
@@ -339,15 +399,13 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 		sciLexer.StyleSetBold(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, true);
 
 		// Fields
-		tc = get_lex_color(mlex_colors["field"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["field"]);
 
 		sciLexer.StyleSetFore(3 /*SCE_TITLEFORMAT_FIELD*/, crcol);
 		sciLexer.StyleSetFore(3 + 64 /*SCE_TITLEFORMAT_FIELD | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Strings (Single quoted string)
-		tc = get_lex_color(mlex_colors["literal string"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["literal string"]);
 
 		sciLexer.StyleSetFore(4 /*SCE_TITLEFORMAT_STRING*/, /*foreground*/crcol);
 		sciLexer.StyleSetItalic(4 /*SCE_TITLEFORMAT_STRING*/, true);
@@ -355,22 +413,19 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 		sciLexer.StyleSetItalic(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, true);
 
 		// Text (Unquoted string)
-		tc = get_lex_color(mlex_colors["string"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["string"]);
 
 		sciLexer.StyleSetFore(5 /*SCE_TITLEFORMAT_LITERALSTRING*/, /*foreground*/crcol);
 		sciLexer.StyleSetFore(5 + 64 /*SCE_TITLEFORMAT_LITERALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Characters (%%, &&, '')
-		tc = get_lex_color(mlex_colors["special string"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["special string"]);
 
 		sciLexer.StyleSetFore(6 /*SCE_TITLEFORMAT_SPECIALSTRING*/, /*foreground*/crcol);
 		sciLexer.StyleSetFore(6 + 64/*SCE_TITLEFORMAT_SPECIALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Functions (todo:identifier?)
-		tc = get_lex_color(mlex_colors["identifier"]);
-		crcol = RGB(tc.r, tc.g, tc.b);
+		crcol = get_lex_color(mlex_colors["identifier"]);
 		sciLexer.StyleSetFore(7, /*SCE_TITLEFORMAT_IDENTIFIER*/ crcol);
 		sciLexer.StyleSetFore(7 + 64 /*SCE_TITLEFORMAT_IDENTIFIER | inactive*/, BlendColor(crcol, 1, background, 1));
 	}
@@ -502,6 +557,8 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	//m_preview.Attach(GetDlgItem(IDC_VALUE));
 
 	m_treeScript.Attach(GetDlgItem(IDC_TREE));
+
+	InitControls();
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
@@ -703,55 +760,47 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 
 				// MAIN BACK/FORE COLORS
 
-				auto tc = get_gen_color(mgen_colors["background"]);
-				COLORREF background = RGB(tc.r, tc.g, tc.b);
+				COLORREF background = get_gen_color(mgen_colors["background"]);
 
-				tc = {};
 				COLORREF crcol = 0;
 
 				switch (n->kind())
 				{
 				case ast::node::kind_block:
 					//tree root 
-					tc = get_lex_color(mlex_colors["special string"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["special string"]);
 
-					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
+					pnmcd->clrText = active ? crcol/*(255, 0,0)RGB*/ : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_call:
 
-					tc = get_lex_color(mlex_colors["field"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["field"]);
 
-					pnmcd->clrText = active ?crcol : BlendColor(crcol, 1, background, 1);
+					pnmcd->clrText = active ?crcol /*RGB(192, 0, 192)*/ : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_comment:
 
-					tc = get_lex_color(mlex_colors["comment"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["comment"]);
 
-					pnmcd->clrText = crcol;
+					pnmcd->clrText = crcol; /*RGB(0, 192, 0);*/
 					break;
 				case ast::node::kind_condition:
 
-					tc = get_lex_color(mlex_colors["operator"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["operator"]);
 
-					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
+					pnmcd->clrText = active ? crcol/*RGB(255, 222, 255)*/ : BlendColor(crcol, 1, background, 1);
 					break;
 				case ast::node::kind_field:
 
-					tc = get_lex_color(mlex_colors["Keyword1"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["identifier"/*"Keyword1"*/]);
 
-					pnmcd->clrText = active ? crcol: BlendColor(crcol, 1, background, 1);
+					pnmcd->clrText = active ? crcol/*RGB(150, 150, 255)*/ : BlendColor(crcol/*RGB(0, 0, 192)*/, 1, background, 1);
 					break;
 				case ast::node::kind_string:
 
-					tc = get_lex_color(mlex_colors["string"]);
-					crcol = RGB(tc.r, tc.g, tc.b);
+					crcol = get_lex_color(mlex_colors["string"]);
 
-					pnmcd->clrText = active ? crcol : BlendColor(crcol, 1, background, 1);
+					pnmcd->clrText = active ? crcol/*RGB(60, 255, 60)*/ : BlendColor(crcol, 1, background, 1);
 					break;
 				}
 			}

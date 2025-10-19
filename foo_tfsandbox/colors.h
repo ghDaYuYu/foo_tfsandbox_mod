@@ -69,7 +69,7 @@ inline std::vector < std::pair<size_t, tfRGB>> vgen_colors = {
 	/*selection foreground*/         { 2,{ 255, 255, 255}},  //
 	/*selection background*/         { 3,{  51, 153, 255}},  //
 	/*calltip foreground*/           { 4,{   0,   0,   0}},  // ::GetSysColor(COLOR_INFOTEXT));
-	/*calltip background*/           { 5,{   0,   0,   0}},  // ::GetSysColor(COLOR_INFOBK));
+	/*calltip background*/           { 5,{ 255, 255, 255}},  // ::GetSysColor(COLOR_INFOBK));
 	/*marker foreground*/            { 6,{ 255, 255, 255}},  //
 	/*marker background*/            { 7,{ 128, 128, 128}},  //
 	/*marker selected background*/   { 8,{   0,   0, 255}},  //
@@ -77,26 +77,26 @@ inline std::vector < std::pair<size_t, tfRGB>> vgen_colors = {
 
 //todo
 
-inline tfRGB get_lex_color(size_t ndx) {
-	tfRGB res = { 0 };
+inline COLORREF get_lex_color(size_t ndx) {
+	tfRGB rgb = { 0 };
 	auto it = std::find_if(vlex_colors.begin(), vlex_colors.end(),
 		[ndx](std::pair<size_t, tfRGB> p) {
 			return p.first == ndx;
 		});
 	if (it != vlex_colors.end()) {
-		res = it->second;
+		rgb = it->second;
 	}
-	return res;
+	return RGB(rgb.r, rgb.g, rgb.b);
 }
 
-inline tfRGB get_gen_color(size_t ndx) {
-	tfRGB res = { 0 };
+inline COLORREF get_gen_color(size_t ndx) {
+	tfRGB rgb = { 0 };
 	auto it = std::find_if(vgen_colors.begin(), vgen_colors.end(),
 		[ndx](std::pair<size_t, tfRGB> p) {
 			return p.first == ndx;
 		});
 	if (it != vgen_colors.end()) {
-		res = it->second;
+		rgb = it->second;
 	}
-	return res;
+	return RGB(rgb.r, rgb.g, rgb.b);
 }
