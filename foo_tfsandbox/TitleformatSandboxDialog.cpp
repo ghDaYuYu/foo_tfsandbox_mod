@@ -750,6 +750,9 @@ LRESULT CTitleFormatSandboxDialog::OnTreeSelChanged(LPNMHDR pnmh)
 		{
 			ast::node *n = (ast::node *)pnmtv->itemNew.lParam;
 			UpdateFragment(n->get_start(), n->get_end());
+
+			auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+			rCtrlScript.GotoPos(n->get_start());
 		}
 	}
 	return 0;
