@@ -1027,33 +1027,15 @@ void CTitleFormatSandboxDialog::UpdateTrace()
 
 void CTitleFormatSandboxDialog::ClearInactiveCodeIndicator()
 {
-	//todo
-	/*if (false && m_privateCall != NULL)
-	{
-		m_privateCall->ClearInactiveRanges();
-	}
-	else
-	{*/
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	rCtrlScript.SetIndicatorCurrent(indicator_inactive_code);
 	rCtrlScript.SetIndicatorValue(1);
 	rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
-	
 }
 
 void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 {
 	inactive_range_walker walker(m_debugger);
-	/*if (m_privateCall != NULL)
-	{
-		if (!walker.inactiveRanges.empty())
-		{
-			m_privateCall->SetInactiveRanges(walker.inactiveRanges.size(), &walker.inactiveRanges[0]);
-			m_editor.Colourise(0, m_editor.GetLength());
-		}
-	}
-	else
-	{*/
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 
@@ -1071,23 +1053,13 @@ void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 			int fillLength = walker.inactiveRanges[index].cpMax - walker.inactiveRanges[index].cpMin;
 
 			rCtrlScript.IndicatorFillRange(position, fillLength);
-
 		}
 	}
-
 }
 
 void CTitleFormatSandboxDialog::ClearFragment()
 {
 	m_selfrag = ast::fragment();
-	//todo
-	/*if (false && m_privateCall != NULL)
-	{
-		m_privateCall->ClearInactiveRanges();
-		m_editor.Colourise(0, m_editor.GetLength());
-	}
-	else
-	{*/
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	rCtrlScript.SetIndicatorCurrent(indicator_fragment);

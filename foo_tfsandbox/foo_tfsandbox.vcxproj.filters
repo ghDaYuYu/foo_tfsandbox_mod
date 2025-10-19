@@ -15,16 +15,90 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TitleformatSandboxDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="titleformat_visitor_impl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="titleformat_syntax.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="titleformat_node_filter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="titleformat_debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="titleformat_analysis.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="string_from_resources.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mainmenu_commands_impl_single.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LibraryScope.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomScanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ScintillaCtrl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ScintillaCtrlExt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="colors_json.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="colors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="CustomScanner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="foo_tfsandbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LibraryScope.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mainmenu_tfsandbox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="string_from_resources.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="titleformat_analysis.cpp">
@@ -36,95 +110,15 @@
     <ClCompile Include="titleformat_syntax.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mainmenu_tfsandbox.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="string_from_resources.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TitleformatSandboxDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="LibraryScope.cpp">
+    <ClCompile Include="ScintillaCtrl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Parser.frame">
+    <ClCompile Include="colors_json.cpp">
       <Filter>Source Files</Filter>
-    </None>
-    <None Include="Scanner.frame">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="titleformat.atg">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="symbols.bmp">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="symbols32.bmp">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="exclamation.ico">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="cross.ico">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="tick.ico">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="..\README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="CustomScanner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Scanner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="titleformat_analysis.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="titleformat_debug.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="titleformat_syntax.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="foo_tfsandbox_version.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TitleformatSandboxDialog.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="string_from_resources.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="mainmenu_commands_impl_single.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="LibraryScope.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="titleformat_node_filter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="titleformat_visitor_impl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="foo_tfsandbox.rc">
@@ -133,5 +127,22 @@
     <ResourceCompile Include="foo_tfsandbox_version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="tick.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="exclamation.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="cross.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="symbols32.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="symbols.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

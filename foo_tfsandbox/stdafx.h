@@ -7,11 +7,18 @@
 
 #define ISOLATION_AWARE_ENABLED 1
 
-#include "targetver.h"
+#ifndef WINVER
+#define WINVER 0x601
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x601
+#endif
+#ifndef _WIN32_WINDOWS
+#define _WIN32_WINDOWS 0x601
+#endif
 
-#include "foobar2000/SDK/foobar2000.h"
-#include "foobar2000/ATLHelpers/ATLHelpers.h"
+#include <winsdkver.h>
 
-#include <commctrl.h>
+#include "helpers/foobar2000+atl.h"
 
-#include <atldlgs.h>
+#define SCI_NAMESPACE

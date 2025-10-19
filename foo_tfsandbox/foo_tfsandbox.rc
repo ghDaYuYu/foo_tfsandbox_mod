@@ -7,13 +7,16 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include <windows.h>
+#ifndef IDC_STATIC
+#define IDC_STATIC -1
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Englisch (USA) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
@@ -32,7 +35,10 @@ END
 
 2 TEXTINCLUDE 
 BEGIN
-    "#include ""afxres.h""\r\n"
+    "#include <windows.h>\r\n"
+    "#ifndef IDC_STATIC\r\n"
+    "#define IDC_STATIC -1\r\n"
+    "#endif\r\n"
     "\0"
 END
 
@@ -50,14 +56,14 @@ END
 // Dialog
 //
 
-IDR_TFDBG DIALOGEX 0, 0, 527, 258
+IDD_TFDLG DIALOGEX 0, 0, 527, 257
 STYLE DS_SETFONT | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
-CAPTION "Title Formatting Sandbox"
+CAPTION "Title Formatting Sandbox Mod"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    CONTROL         "",IDC_SCRIPT,"Scintilla",WS_CLIPCHILDREN | WS_TABSTOP,7,7,377,186,WS_EX_STATICEDGE
-    CONTROL         "",IDC_VALUE,"Scintilla",WS_CLIPCHILDREN | WS_TABSTOP,7,198,377,53,WS_EX_STATICEDGE
-    CONTROL         "",IDC_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS | WS_HSCROLL | WS_TABSTOP,391,7,129,244,WS_EX_STATICEDGE
+    CONTROL         "",IDC_SCRIPT,"Scintilla",WS_CLIPCHILDREN | WS_TABSTOP,3,3,362,190,WS_EX_STATICEDGE
+    CONTROL         "",IDC_VALUE,"Scintilla",WS_CLIPCHILDREN | WS_TABSTOP,3,196,362,58,WS_EX_STATICEDGE
+    CONTROL         "",IDC_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS | WS_HSCROLL | WS_TABSTOP,368,3,156,251,WS_EX_STATICEDGE
 END
 
 
@@ -69,12 +75,8 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
-    IDR_TFDBG, DIALOG
+    IDD_TFDLG, DIALOG
     BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 520
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 251
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -85,7 +87,7 @@ END
 // Accelerator
 //
 
-IDR_TFDBG ACCELERATORS
+IDD_TFDLG ACCELERATORS
 BEGIN
     "A",            ID_EDIT_SELECT_ALL,     VIRTKEY, CONTROL, NOINVERT
     "T",            ID_TEST_UPDATE,         VIRTKEY, CONTROL, NOINVERT
@@ -118,11 +120,12 @@ IDI_FUGUE_TICK          ICON                    "tick.ico"
 
 STRINGTABLE
 BEGIN
-    IDS_CMD_TFDBG_NAME      "Title Formatting Sandbox"
-    IDS_CMD_TFDBG_DESCRIPTION "Activates the Title Formatting Sandbox window."
+    IDS_CMD_TFDBG_NAME      "Title Formatting Sandbox Mod"
+    IDS_CMD_TFDBG_DESCRIPTION 
+                            "Activates the Title Formatting Sandbox Mod window."
 END
 
-#endif    // Englisch (USA) resources
+#endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
