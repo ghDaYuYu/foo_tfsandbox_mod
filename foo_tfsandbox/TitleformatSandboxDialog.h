@@ -55,6 +55,18 @@ public:
 	//bool m_updating_fragment;
 
 	static CWindow g_wndInstance;
+
+	class ui_v2_config_callback : public ui_config_callback {
+		ui_v2_config_callback(CTitleFormatSandboxDialog* dlg) : p_dlg(dlg) {};
+		virtual void ui_colors_changed() override;
+
+	private:
+		CTitleFormatSandboxDialog* p_dlg;
+		friend class CTitleFormatSandboxDialog;
+	};
+
+	ui_v2_config_callback* ui_v2_cfg_callback = nullptr;
+
 	static void ActivateDialog();
 
 	virtual bool pretranslate_message(MSG *pMsg);

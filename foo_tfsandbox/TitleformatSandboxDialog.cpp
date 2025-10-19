@@ -111,10 +111,30 @@ static CDialogResizeHelper::Param resizeParams[] = {
     {IDC_VALUE, 0, 1, 1, 1},
     {IDC_TREE, 1, 0, 1, 1}
 };
+
+//! Called when user changes configuration of colors (also as a result of toggling dark mode). \n
+//! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
+void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
+
+	bool bdark = p_dlg->m_dark.IsDark();
+	colors_json cj;
+	cj.read_colors_json(bdark);
+
+	p_dlg->InitControls();
+
+}
+
 CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resizeParams), m_script_update_pending(false),
 	m_dlgPosTracker(cfg_window_position)
 {
 	m_dlgResizeHelper.set_min_size(342, 232);
+	m_dlgResizeHelper.m_autoSizeGrip = false;
+
+	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
+	if (bv2) {
+		ui_v2_cfg_callback = new ui_v2_config_callback(this);
+		ui_config_manager::get()->add_callback(ui_v2_cfg_callback);
+	}
 
 	pfc::string8 install_dir = pfc::string_directory(core_api::get_my_full_path());
 	pfc::string8 scintilla_path = PFC_string_formatter() << install_dir << "\\Scintilla.dll";
