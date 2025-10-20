@@ -221,6 +221,10 @@ void CTitleFormatSandboxDialog::InitControls() {
 
 	rCtrlValue.StyleSetFore(STYLE_DEFAULT, crcol);
 
+	// CURSOR/CARET
+
+	rCtrlScript.SetCaretFore(crcol);
+
 	//TreeView_SetBkColor(m_treeScript, RGB(100, 255, 100));// (m_treeScript, crcol);
 
 	// VALUE SELECTION BACK/FOREGROUND/HIGHLIGHT
