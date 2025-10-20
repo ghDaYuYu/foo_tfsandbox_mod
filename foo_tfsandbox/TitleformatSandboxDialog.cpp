@@ -390,20 +390,6 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 	cr_tmp = get_gen_color(mgen_colors["calltip background"]);
 	sciLexer.StyleSetBack(STYLE_CALLTIP, cr_tmp);
 
-	//
-	// --------- INSTANCIATE FT LEXER -------------------
-	//
-
-	// TODO: fix manifest
-	FARPROC lexer_tf_create_fun = GetProcAddress(m_lexillaScope.GetModule(), LEXILLA_CREATELEXER);
-	Lexilla::CreateLexerFn lexilla_tf_create = (Lexilla::CreateLexerFn)(lexer_tf_create_fun);
-
-	char lexer_tf_name[MAX_PATH] = "titleformat";
-	void* pLexer = lexilla_tf_create(lexer_tf_name);
-	::SendMessage(m_editor, SCI_SETILEXER, 0, (LPARAM)pLexer);
-
-	// --
-
 	char outlen[MAX_PATH];
 	if ((sciLexer.GetLexerLanguage(outlen) > 0))
 	{
@@ -582,6 +568,19 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	//m_preview.Attach(GetDlgItem(IDC_VALUE));
 
 	m_treeScript.Attach(GetDlgItem(IDC_TREE));
+
+	// --------- INSTANCIATE FT LEXER -------------------
+
+	// TODO: fix manifest
+	FARPROC lexer_tf_create_fun = GetProcAddress(m_lexillaScope.GetModule(), LEXILLA_CREATELEXER);
+	Lexilla::CreateLexerFn lexilla_tf_create = (Lexilla::CreateLexerFn)(lexer_tf_create_fun);
+
+	char lexer_tf_name[MAX_PATH] = "titleformat";
+	void* pLexer = lexilla_tf_create(lexer_tf_name);
+	::SendMessage(m_editor, SCI_SETILEXER, 0, (LPARAM)pLexer);
+
+	// --
+
 
 	InitControls();
 
