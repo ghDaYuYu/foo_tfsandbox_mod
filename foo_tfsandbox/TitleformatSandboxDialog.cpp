@@ -117,7 +117,7 @@ static CDialogResizeHelper::Param resizeParams[] = {
 //! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
 
-	bool bdark = p_dlg->m_dark.IsDark();
+	bool bdark = ui_config_manager_v2::get()->is_dark_mode();
 	colors_json cj;
 	cj.read_colors_json(bdark);
 
