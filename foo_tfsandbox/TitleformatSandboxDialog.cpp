@@ -594,6 +594,11 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 			}
 		}
 	}
+	else {
+		vgen_colors = vgen_colors_defaults;
+		vlex_colors = vlex_colors_defaults;
+		vindicator_colors = vindicator_colors_defaults;
+	}
 
 	InitControls();
 

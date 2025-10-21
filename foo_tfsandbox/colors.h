@@ -24,7 +24,7 @@ inline std::map<std::string, size_t> mlex_colors{
 	{"Keyword4",      11}, //"SCE_TITLEFORMAT_KEYWORD4"
 };
 
-inline std::vector < std::pair<size_t, tfRGB>> vlex_colors = {
+inline const std::vector < std::pair<size_t, tfRGB>> vlex_colors_defaults = {
 	/*default*/          { 0,{   0,   0,   0}},
 	/*comment*/          { 1,{   0, 128,   0}},
 	/*operator*/         { 2,{   0,   0,   0}},
@@ -39,17 +39,21 @@ inline std::vector < std::pair<size_t, tfRGB>> vlex_colors = {
 	/*Keyword4*/         {11,{   0,   0,   0}}
 };
 
+inline std::vector < std::pair<size_t, tfRGB>> vlex_colors = vlex_colors_defaults;
+
 inline std::map<std::string, size_t> mindicalors_colors{
 	{"inactive code",  0},
 	{"fragment",       1},
 	{"error",          2},
 };
 
-inline std::vector < std::pair<size_t, tfRGB>> vindicator_colors = {
+inline const std::vector < std::pair<size_t, tfRGB>> vindicator_colors_defaults = {
 	/*inactive code*/  { 0,{   0,   0,   0}},
 	/*fragment*/       { 1,{  64, 128, 255}},
 	/*error*/          { 2,{ 255,   0,   0}},
 };
+
+inline std::vector < std::pair<size_t, tfRGB>> vindicator_colors = vindicator_colors_defaults;
 
 inline std::map<std::string, size_t> mgen_colors{
 	{"foreground",                   0},
@@ -63,7 +67,7 @@ inline std::map<std::string, size_t> mgen_colors{
 	{"marker selected background",   8},
 };
 
-inline std::vector < std::pair<size_t, tfRGB>> vgen_colors = {
+inline const std::vector < std::pair<size_t, tfRGB>> vgen_colors_defaults = {
 	/*foreground*/                   { 0,{   0,   0,   0}},  //
 	/*background*/                   { 1,{ 255, 255, 255}},  //
 	/*selection foreground*/         { 2,{ 255, 255, 255}},  //
@@ -75,7 +79,7 @@ inline std::vector < std::pair<size_t, tfRGB>> vgen_colors = {
 	/*marker selected background*/   { 8,{   0,   0, 255}},  //
 };
 
-//todo
+inline std::vector < std::pair<size_t, tfRGB>> vgen_colors = vgen_colors_defaults;
 
 inline COLORREF get_lex_color(size_t ndx) {
 	tfRGB rgb = { 0 };
