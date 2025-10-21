@@ -799,6 +799,9 @@ void CTitleFormatSandboxDialog::UpdateScript()
 
 	auto illa_wide = rCtrlScript.GetText(kMaxBuffer);
 	auto illa_utf8 = Scintilla::CScintillaCtrl::W2UTF8(illa_wide, -1);
+
+	cfg_format = illa_utf8;
+
 	illa_wide.ReleaseBuffer();
 
 	pfc::string_formatter errors;
