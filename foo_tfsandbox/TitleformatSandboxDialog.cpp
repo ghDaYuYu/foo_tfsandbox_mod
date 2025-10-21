@@ -17,6 +17,7 @@
 
 #include "colors_json.h"
 #include "version.h"
+#include "guids.h"
 
 #include "titleformat_node_filter.h"
 #include "titleformat_visitor_impl.h"
@@ -29,11 +30,6 @@
 
 //#define USE_EXPLORER_THEME 1
 const size_t kMaxBuffer = 1024 * 1024;
-
-// {5BC4462B-30F5-4C9D-AE75-492725363753} mod
-static const GUID guid_cfg_format = { 0x5bc4462b, 0x30f5, 0x4c9d, { 0xae, 0x75, 0x49, 0x27, 0x25, 0x36, 0x37, 0x53 } };
-// {968B2F69-05AB-4A46-8EAA-DA31AE8C55C4} mod
-static const GUID guid_cfg_window_position = { 0x968b2f69, 0x5ab, 0x4a46, { 0x8e, 0xaa, 0xda, 0x31, 0xae, 0x8c, 0x55, 0xc4 } };
 
 static cfgDialogPosition cfg_window_position(guid_cfg_window_position);
 
@@ -48,6 +44,8 @@ static cfg_string cfg_format(guid_cfg_format,
 	"[%artist% - ]%title%"
 #endif
 );
+
+static advconfig_checkbox_factory cfg_adv_load_theme_file("Load theme file", "foo_tfsandbox_mod.load_theme_file", guid_cfg_adv_load_theme_file, guid_tfsandbox_branch, order_load_theme_file, true);
 
 static COLORREF BlendColor(COLORREF color1, DWORD weight1, COLORREF color2, DWORD weight2)
 {
