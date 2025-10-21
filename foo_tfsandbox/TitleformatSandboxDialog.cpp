@@ -115,9 +115,19 @@ static CDialogResizeHelper::Param resizeParams[] = {
 //! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
 
-	bool bdark = ui_config_manager_v2::get()->is_dark_mode();
+	if (!cfg_adv_load_theme_file.get())
+	{
+		return;
+	}
+
 	colors_json cj;
-	cj.read_colors_json(bdark);
+	auto ui_cm = ui_config_manager::tryGet();
+	if (ui_cm.is_valid()) {
+		cj.read_colors_json(ui_cm->is_dark_mode());
+	}
+	else {
+		console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
+	}
 
 	p_dlg->InitControls();
 
@@ -128,12 +138,6 @@ CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resize
 {
 	m_dlgResizeHelper.set_min_size(342, 232);
 	m_dlgResizeHelper.m_autoSizeGrip = false;
-
-	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
-	if (bv2) {
-		ui_v2_cfg_callback = new ui_v2_config_callback(this);
-		ui_config_manager::get()->add_callback(ui_v2_cfg_callback);
-	}
 
 	pfc::string8 install_dir = pfc::string_directory(core_api::get_my_full_path());
 	pfc::string8 scintilla_path = PFC_string_formatter() << install_dir << "\\Scintilla.dll";
@@ -157,11 +161,11 @@ CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resize
 
 CTitleFormatSandboxDialog::~CTitleFormatSandboxDialog()
 {
-	/*if (m_privateCall != NULL)
-	{
-		m_privateCall->Release();
-		m_privateCall = NULL;
-	}*/
+	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
+	if (bv2) {
+		ui_config_manager::get()->remove_callback(m_ui_v2_cfg_callback);
+		delete m_ui_v2_cfg_callback;
+	}
 }
 
 bool CTitleFormatSandboxDialog::pretranslate_message(MSG *pMsg)
@@ -266,7 +270,7 @@ void CTitleFormatSandboxDialog::InitControls() {
 #if defined(USE_EXPLORER_THEME)
 	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 #else
-	if (m_dark.IsDark()) {
+	if (m_dark.IsDark() || IsWine()) {
 		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 	}
 	else {
@@ -308,6 +312,10 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 	selforeground = get_gen_color(mgen_colors["selection foreground"]);
 
 	///////////////////////////////////////////////////////////////
+
+	if (IsWine()) {
+		TreeView_SetBkColor(m_treeScript, background);
+	}
 
 	rCtrlScript.SetEdgeColour(background);
 
@@ -542,28 +550,14 @@ std::unique_ptr<Scintilla::CScintillaCtrl> CTitleFormatSandboxDialog::CreateScin
 BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam)
 {
 
-	colors_json cj;
-	std::vector<std::pair<size_t, tfRGB>> vcolors;
-
-	CWindowDC dc(core_api::get_main_window());
-	bool bdark = false;
-	
-	//todo: wine testing
-	//if (IsWine() && !is_wine_light_theme) {
-		...
-	//}
-	//else {
-		bdark = m_dark.IsDark();
-	//}
-
-	cj.read_colors_json(bdark);
+	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
+	if (bv2 && !m_ui_v2_cfg_callback) {
+		m_ui_v2_cfg_callback = new ui_v2_config_callback(this);
+		ui_config_manager::get()->add_callback(m_ui_v2_cfg_callback);
+	}
 
 	m_editor = GetDlgItem(IDC_SCRIPT);
 	m_preview = GetDlgItem(IDC_VALUE);
-	
-	//auto res = Scintilla_RegisterClasses(m_editor);
-	//m_editor.Attach(GetDlgItem(IDC_SCRIPT));
-	//m_preview.Attach(GetDlgItem(IDC_VALUE));
 
 	m_treeScript.Attach(GetDlgItem(IDC_TREE));
 
@@ -579,87 +573,34 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	// --
 
+	m_dark.AddDialog(m_hWnd);
+	m_dark.AddControls(m_hWnd);
+
+	colors_json cj;
+	std::vector<std::pair<size_t, tfRGB>> vcolors;
+
+	if (cfg_adv_load_theme_file.get()) {
+
+		if (!bv2 || IsWine()) {
+			cj.read_colors_json(false);
+		}
+		else {
+			auto ui_cm = ui_config_manager::tryGet();
+			if (ui_cm.is_valid()) {
+				cj.read_colors_json(ui_cm->is_dark_mode());
+			}
+			else {
+				console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
+			}
+		}
+	}
 
 	InitControls();
-
-	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
-	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
-
-	// ---------- VALUE PREVIEW PANEL --------------------
-	
-	// PANEL BACK/FOREGROUND
-
-	tfRGB col = get_gen_color(mgen_colors["background"]);
-	COLORREF crcol = RGB(col.r, col.g, col.b);
-
-	rCtrlValue.StyleSetBack(STYLE_DEFAULT, crcol);
-
-	col = get_gen_color(mgen_colors["foreground"]);
-	crcol = RGB(col.r, col.g, col.b);
-
-	rCtrlValue.StyleSetFore(STYLE_DEFAULT, crcol);
-
-	// VALUE SELECTION BACK/FOREGROUND/HIGHLIGHT
-
-	col = get_gen_color(mgen_colors["selection background"]);
-
-	crcol = RGB(col.r, col.g, col.b);
-	rCtrlValue.SetSelBack(STYLE_DEFAULT, crcol);
-
-	col = get_gen_color(mgen_colors["selection foreground"]);
-	crcol = RGB(col.r, col.g, col.b);
-	//font color when draggin cursor over text
-	rCtrlValue.SetSelFore(STYLE_DEFAULT, crcol/*RGB(255,0,0)*/);
-
-	col = get_gen_color(mgen_colors["marker foreground"]);
-	crcol = RGB(col.r, col.g, col.b);
-
-	rCtrlValue.MarkerSetFore(STYLE_DEFAULT, crcol);
-
-	col = get_gen_color(mgen_colors["marker background"]);
-	crcol = RGB(col.r, col.g, col.b);
-
-	rCtrlValue.MarkerSetBack(STYLE_DEFAULT, crcol);
-
-
-	rCtrlScript.SetCodePage(SC_CP_UTF8);
-	rCtrlScript.SetModEventMask(Scintilla::ModificationFlags::InsertText | Scintilla::ModificationFlags::DeleteText);
-	rCtrlScript.SetMouseDwellTime(500);
-
-	rCtrlValue.SetCodePage(SC_CP_UTF8);
-
-	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
-
-	// Set up styles
-	SetupTitleFormatStyles(m_editor);
-
-	SetupPreviewStyles(m_preview);
-
-	rCtrlValue.SetReadOnly(true);
-
-#if defined USE_EXPLORER_THEME
-	SetWindowTheme(m_treeScript, L"Explorer", NULL);
-#endif
-
-	CImageList imageList;
-
-#if defined(USE_EXPLORER_THEME)
-	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
-#else
-	if (m_dark.IsDark()) {
-		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
-	}
-	else {
-		imageList.CreateFromImage(IDB_SYMBOLS, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP);
-	}
-#endif
-	imageList.SetOverlayImage(6, 1);
-	
-	m_treeScript.SetImageList(imageList);
 
 	m_script_update_pending = true;
 	//m_updating_fragment = false;
 
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	rCtrlScript = GetCtrl(IDC_SCRIPT);
 
 	rCtrlScript.SetText(cfg_format);
@@ -672,9 +613,6 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	static_api_ptr_t<message_loop>()->add_message_filter(this);
 
 	g_wndInstance = static_cast<ATL::CWindow>(*this);
-
-	m_dark.AddDialog(m_hWnd);
-	m_dark.AddControls(m_hWnd);
 
 	return TRUE;
 }

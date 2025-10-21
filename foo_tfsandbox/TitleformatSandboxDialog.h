@@ -65,7 +65,7 @@ public:
 		friend class CTitleFormatSandboxDialog;
 	};
 
-	ui_v2_config_callback* ui_v2_cfg_callback = nullptr;
+	ui_v2_config_callback* m_ui_v2_cfg_callback = nullptr;
 
 	static void ActivateDialog();
 
