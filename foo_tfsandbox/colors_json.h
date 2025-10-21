@@ -11,7 +11,8 @@ public:
 	~colors_json();
 
 	bool read_colors_json(bool dark);
+	static bool copy_installation_theme_files();
 
 private:
-	std::filesystem::path genFilePath(bool dark);
+	static std::filesystem::path genFilePath(bool dst, bool dark);
 };

@@ -17,20 +17,87 @@ colors_json::~colors_json()
 	//..
 }
 
-std::filesystem::path colors_json::genFilePath(bool dark) {
+static pfc::string8 profile_usr_components_path(bool native = true) {
+	pfc::string8 path;
+#ifdef _WIN64
+	path << (core_api::pathInProfile("user-components-x64\\") << core_api::get_my_file_name());
+#else
+	path << (core_api::pathInProfile("user-components\\") << core_api::get_my_file_name());
+#endif
+	if (native)
+		extract_native_path(path, path);
+	return path;
+}
 
-	pfc::string8 n8_path = core_api::pathInProfile("configuration");
+bool inst_copy_file(std::filesystem::path os_src, std::filesystem::path os_dst) {
+	try {
+		//copy theme file...
+		if (std::filesystem::exists(os_dst)) {
+			pfc::string8 msg = "a previous theme file was found";
+			console::formatter() << "[" << COMPONENT_NAME << "] : " << msg;
+			return true;
+		}
+		return std::filesystem::copy_file(os_src, os_dst);
+	}
+	catch (const std::filesystem::filesystem_error&)
+	{
+		pfc::string8 msg = "failed to install theme file";
+		msg << (!std::filesystem::exists(os_src) ? " (missing theme file)" : "");
+		console::formatter() << "[" << COMPONENT_NAME << "] : " << msg;
+		return false;
+	}
+	return false;
+}
+
+std::filesystem::path colors_json::genFilePath(bool dst, bool dark) {
+
+	pfc::string8 n8_path;
+	if (dst) {
+		n8_path = core_api::pathInProfile("configuration");
+	}
+	else {
+		n8_path = profile_usr_components_path();
+	}
+
 	extract_native_path(n8_path, n8_path);
 
-	std::filesystem::path os_dst = std::filesystem::u8path(n8_path.c_str());
+	std::filesystem::path os_path = std::filesystem::u8path(n8_path.c_str());
 
 	pfc::string8 filename = core_api::get_my_file_name();
 	filename << ".dll.dat";
 	if (dark) { filename << "_dark"; }
-	os_dst.append(filename.c_str());
-	bool b_dst_exists = std::filesystem::exists(os_dst);
+	os_path.append(filename.c_str());
 
-	return os_dst;
+	return os_path;
+}
+
+bool colors_json::copy_installation_theme_files() {
+
+	bool bres = false;
+
+	bool dark = false;
+	while (true) {
+		auto os_dst = genFilePath(true, dark);
+		bool b_dst_exists = std::filesystem::exists(os_dst);
+		if (!b_dst_exists) {
+			auto os_src = genFilePath(false, dark);
+			try {
+				if (std::filesystem::exists(os_src)) {
+					bres |= inst_copy_file(os_src, os_dst);
+				}
+			}
+			catch (...) {
+				//..
+			}
+		}
+		if (!dark) {
+			dark = true;
+		}
+		else {
+			break;
+		}
+	}
+	return bres;
 }
 
 using Tokens = std::vector<std::string>;
@@ -145,7 +212,7 @@ bool colors_json::read_colors_json(bool dark) {
 
 		try {
 
-			os_file = genFilePath(dark);
+			os_file = genFilePath(true, dark);
 
 			jf = _wopen(os_file.wstring().c_str(), _O_RDONLY);
 
