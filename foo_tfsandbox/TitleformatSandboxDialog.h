@@ -96,8 +96,8 @@ public:
 	void ClearInactiveCodeIndicator();
 	void UpdateInactiveCodeIndicator();
 
-	void InitControls();
-	void SetupTitleFormatStyles(CSciLexerCtrl sciLexer);
+	void InitControls(bool dark_alpha);
+	void SetupTitleFormatStyles(CSciLexerCtrl sciLexer, bool dark_alpha);
 	/*void SetupTitleFormatStyles_new();*/
 	void SetupPreviewStyles(CSciLexerCtrl sciLexer);
 

@@ -114,7 +114,7 @@ static CDialogResizeHelper::Param resizeParams[] = {
 //! Called when user changes configuration of colors (also as a result of toggling dark mode). \n
 //! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
-
+	bool dark = false;
 	if (!cfg_adv_load_theme_file.get())
 	{
 		return;
@@ -123,13 +123,14 @@ void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
 	colors_json cj;
 	auto ui_cm = ui_config_manager::tryGet();
 	if (ui_cm.is_valid()) {
-		cj.read_colors_json(ui_cm->is_dark_mode());
+		dark = ui_cm->is_dark_mode();
+		cj.read_colors_json(dark);
 	}
 	else {
 		console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
 	}
 
-	p_dlg->InitControls();
+	p_dlg->InitControls(dark);
 
 }
 
@@ -206,7 +207,7 @@ void CTitleFormatSandboxDialog::ActivateDialog()
 	}
 }
 
-void CTitleFormatSandboxDialog::InitControls() {
+void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
@@ -255,7 +256,7 @@ void CTitleFormatSandboxDialog::InitControls() {
 	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
 
 	// Set up styles
-	SetupTitleFormatStyles(m_editor);
+	SetupTitleFormatStyles(m_editor, dark_alpha);
 
 	SetupPreviewStyles(m_preview);
 
@@ -282,7 +283,7 @@ void CTitleFormatSandboxDialog::InitControls() {
 	m_treeScript.SetImageList(imageList);
 }
 
-void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
+void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer, bool dark_alpha)
 {
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 
@@ -469,6 +470,10 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer)
 	sciLexer.IndicSetStyle(indicator_fragment, INDIC_STRAIGHTBOX);
 	sciLexer.IndicSetFore(indicator_fragment, crcol);
 	sciLexer.IndicSetUnder(indicator_fragment, true);
+	if (dark_alpha) {
+		auto alpha = sciLexer.IndicGetAlpha(indicator_fragment);
+		sciLexer.IndicSetAlpha(indicator_fragment, (std::min)(255, alpha + 30));
+	}
 
 	// errors
 	col = vindicator_colors[2].second;
@@ -576,6 +581,7 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 	m_dark.AddDialog(m_hWnd);
 	m_dark.AddControls(m_hWnd);
 
+	bool dark = false;
 	colors_json cj;
 	std::vector<std::pair<size_t, tfRGB>> vcolors;
 
@@ -587,7 +593,8 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 		else {
 			auto ui_cm = ui_config_manager::tryGet();
 			if (ui_cm.is_valid()) {
-				cj.read_colors_json(ui_cm->is_dark_mode());
+				dark = ui_cm->is_dark_mode();
+				cj.read_colors_json(dark);
 			}
 			else {
 				console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
@@ -600,7 +607,7 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 		vindicator_colors = vindicator_colors_defaults;
 	}
 
-	InitControls();
+	InitControls(dark);
 
 	m_script_update_pending = true;
 	//m_updating_fragment = false;
