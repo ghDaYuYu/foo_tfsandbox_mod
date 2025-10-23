@@ -58,6 +58,7 @@ public:
 
 	class ui_v2_config_callback : public ui_config_callback {
 		ui_v2_config_callback(CTitleFormatSandboxDialog* dlg) : p_dlg(dlg) {};
+		virtual void ui_fonts_changed() override;
 		virtual void ui_colors_changed() override;
 
 	private:
@@ -141,6 +142,11 @@ protected:
 
 	Scintilla::CScintillaCtrl& GetCtrl(int id);
 	std::unique_ptr<Scintilla::CScintillaCtrl> CreateScintillaControl();
-	std::unique_ptr<Scintilla::CScintillaCtrl> m_pScript;	//The scintilla control
-	std::unique_ptr<Scintilla::CScintillaCtrl> m_pValue;	//The scintilla control
+	std::unique_ptr<Scintilla::CScintillaCtrl> m_pScript;   //The scintilla control
+	std::unique_ptr<Scintilla::CScintillaCtrl> m_pValue;    //The scintilla control
+
+	HFONT m_hFont = nullptr;
+	HFONT m_hTreeFont = nullptr;
+	bool m_font_managed = false;
+	bool m_tree_font_managed = false;
 };

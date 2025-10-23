@@ -113,27 +113,29 @@ static CDialogResizeHelper::Param resizeParams[] = {
     {IDC_TREE, 1, 0, 1, 1}
 };
 
+void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_fonts_changed() {
+
+	if (cfg_adv_use_console_font.get()) {
+
+		p_dlg->SetupFonts();
+
+		bool dark = false;
+		dark = ui_config_manager::g_is_dark_mode();
+		p_dlg->InitControls(dark);
+	}
+}
 //! Called when user changes configuration of colors (also as a result of toggling dark mode). \n
 //! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
-	bool dark = false;
 	if (!cfg_adv_load_theme_file.get())
 	{
 		return;
 	}
 
 	colors_json cj;
-	auto ui_cm = ui_config_manager::tryGet();
-	if (ui_cm.is_valid()) {
-		dark = ui_cm->is_dark_mode();
-		cj.read_colors_json(dark);
-	}
-	else {
-		console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
-	}
-
+	bool dark = ui_config_manager::g_is_dark_mode();
+	cj.read_colors_json(dark);
 	p_dlg->InitControls(dark);
-
 }
 
 CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resizeParams), m_script_update_pending(false),
@@ -229,6 +231,11 @@ CTitleFormatSandboxDialog::~CTitleFormatSandboxDialog()
 		ui_config_manager::get()->remove_callback(m_ui_v2_cfg_callback);
 		delete m_ui_v2_cfg_callback;
 	}
+
+	if (m_hTreeFont && !m_tree_font_managed) {
+		DeleteObject(m_hTreeFont);
+		m_hTreeFont = nullptr;
+	}
 }
 
 bool CTitleFormatSandboxDialog::pretranslate_message(MSG *pMsg)
@@ -274,9 +281,7 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
 
-	// -----------   VALUE PREVIEW--------------------
-
-	// PANEL BACK/FOREGROUND
+	// DEFAULT STYLE - BACK/FOREGROUND
 
 	COLORREF crcol = get_gen_color(mgen_colors["background"]);
 
@@ -290,16 +295,17 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 
 	rCtrlScript.SetCaretFore(crcol);
 
-	//TreeView_SetBkColor(m_treeScript, RGB(100, 255, 100));// (m_treeScript, crcol);
-
 	// VALUE SELECTION BACK/FOREGROUND/HIGHLIGHT
 
 	crcol = get_gen_color(mgen_colors["selection background"]);
 	rCtrlValue.SetSelBack(STYLE_DEFAULT, crcol);
 
 	crcol = get_gen_color(mgen_colors["selection foreground"]);
-	//font color when draggin cursor over text
+
 	rCtrlValue.SetSelFore(STYLE_DEFAULT, crcol/*RGB(255,0,0)*/);
+
+
+	// MARKER BACK/FOREGROUND
 
 	crcol = get_gen_color(mgen_colors["marker foreground"]);
 
@@ -309,21 +315,26 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 
 	rCtrlValue.MarkerSetBack(STYLE_DEFAULT, crcol);
 
+	// CODE PAGE
+
 	rCtrlScript.SetCodePage(SC_CP_UTF8);
+	rCtrlValue.SetCodePage(SC_CP_UTF8);
+
+	// EVENTS / DWELL
+
 	rCtrlScript.SetModEventMask(Scintilla::ModificationFlags::InsertText | Scintilla::ModificationFlags::DeleteText);
 	rCtrlScript.SetMouseDwellTime(500);
 
-	rCtrlValue.SetCodePage(SC_CP_UTF8);
+	// MAIN SETUPS
 
 	SetupTitleFormatStyles(dark_alpha);
 	SetupPreviewStyles();
 
-	// Set up styles
-	SetupTitleFormatStyles(m_editor, dark_alpha);
-
-	SetupPreviewStyles(m_preview);
+	// READ ONLY
 
 	rCtrlValue.SetReadOnly(true);
+
+	// IMAGE LIST
 
 #if defined USE_EXPLORER_THEME
 	SetWindowTheme(m_treeScript, L"Explorer", NULL);
@@ -543,8 +554,128 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(bool dark_alpha)
 	col = vindicator_colors[2].second;
 	crcol = RGB(col.r, col.g, col.b);
 
-	sciLexer.IndicSetStyle(indicator_error, INDIC_SQUIGGLE);
-	sciLexer.IndicSetFore(indicator_error, crcol);
+	rCtrlScript.IndicSetStyle(indicator_error, Scintilla::IndicatorStyle::Squiggle/*INDIC_SQUIGGLE*/);
+	rCtrlScript.IndicSetFore(indicator_error, crcol);
+	rCtrlScript.Call(SCI_SETPROPERTY, (WPARAM)"fold", (LPARAM)"1");
+}
+
+void CTitleFormatSandboxDialog::SetupFonts() {
+
+	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
+
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+	// CALLTIPS
+	
+	rCtrlScript.StyleSetFont(STYLE_CALLTIP, "Verdana");
+	
+	// LEXER
+
+	LOGFONT lf_desired_ui_font;
+	memset(&lf_desired_ui_font, 0, sizeof(LOGFONT));
+	int desired_ui_font_size = 0;
+
+	auto PointSize = 0;
+
+	if (bv2 && cfg_adv_use_console_font.get()) {
+
+		auto ui_cfg_mng = ui_config_manager::get();
+
+		if (m_hFont && !m_font_managed) {
+			DeleteObject(m_hFont);
+			m_hFont = nullptr;
+		}
+
+		m_hFont = ui_cfg_mng->query_font(ui_font_console);
+		m_font_managed = true;
+
+		CFont cFont;
+		cFont.Attach(m_hFont);
+		cFont.GetLogFont(lf_desired_ui_font);
+		desired_ui_font_size = lf_desired_ui_font.lfHeight;
+		char str[MAX_PATH] = {0};
+		auto wlength = pfc::stringcvt::convert_wide_to_utf8(str, MAX_PATH, lf_desired_ui_font.lfFaceName, MAX_PATH);
+		LPSTR lpstr = const_cast<char*>(str);
+
+		// set font
+
+		rCtrlScript.StyleSetFont(STYLE_DEFAULT, lpstr);
+		rCtrlScript.StyleSetFont(STYLE_LINENUMBER, lpstr);
+
+		//todo
+		CWindowDC dc(m_editor);
+		int LogPixelsY =  GetDeviceCaps(dc, LOGPIXELSY);
+		PointSize = MulDiv(-lf_desired_ui_font.lfHeight, 72, LogPixelsY);
+
+		//todo: config panel
+
+		// font size
+
+		//default font
+		rCtrlScript.StyleSetSizeFractional(STYLE_DEFAULT, PointSize * 100);
+		// line-number margin font
+		rCtrlScript.StyleSetSizeFractional(STYLE_LINENUMBER, PointSize * 100);
+
+		cFont.Detach();
+	}
+	else {
+		rCtrlScript.StyleSetFont(STYLE_DEFAULT, "Consolas");
+		rCtrlScript.StyleSetSizeFractional(STYLE_DEFAULT, cfg_adv_tf_font_size.get() * 100);
+		m_font_managed = true;
+	}
+
+	// VALUES (font size)
+
+	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
+	if (bv2 && cfg_adv_use_console_font.get()) {
+		rCtrlValue.StyleSetSizeFractional(STYLE_DEFAULT, PointSize * 100);
+		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, PointSize * 100);
+	}
+	else {
+		int desiredHeight = cfg_adv_tf_font_size.get();
+		rCtrlValue.StyleSetSizeFractional(STYLE_DEFAULT, desiredHeight * 100);
+		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, desiredHeight * 100);
+	}
+
+	// TREE
+
+	if (bv2 && cfg_adv_use_console_font.get()) {
+
+		auto ui_cfg_mng = ui_config_manager::get();
+
+		if (!m_hFont) {
+			m_hFont = ui_cfg_mng->query_font(ui_font_console);
+			m_tree_font_managed = true;
+		}
+
+		BOOL redraw = TRUE;
+		::SendMessage(m_treeScript, WM_SETFONT, (WPARAM)m_hFont, redraw);
+
+	}
+	else {
+
+		//"Consolas",...
+
+		if (m_hTreeFont && !m_tree_font_managed) {
+			DeleteObject(m_hTreeFont);
+			m_hTreeFont = nullptr;
+		}
+
+		int desiredHeight = cfg_adv_tf_font_size.get();
+
+		CWindowDC dc(m_editor);
+		const int height = -MulDiv(desiredHeight, dc.GetDeviceCaps(LOGPIXELSY), /*dpi*/72);
+		ReleaseDC(dc);
+
+		m_hTreeFont = CreateFont(height, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+			CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Consolas"));
+
+		if (m_hTreeFont) {
+			m_tree_font_managed = false;
+			BOOL redraw = TRUE;
+			::SendMessage(m_treeScript, WM_SETFONT, (WPARAM)m_hTreeFont, redraw);
+		}
+	}
 }
 
 void CTitleFormatSandboxDialog::SetupPreviewStyles()
@@ -645,8 +776,10 @@ std::unique_ptr<Scintilla::CScintillaCtrl> CTitleFormatSandboxDialog::CreateScin
 BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam)
 {
 
+	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
+
 	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
-	if (bv2 && !m_ui_v2_cfg_callback) {
+	if (bv2 && m_ui_v2_cfg_callback == nullptr) {
 		m_ui_v2_cfg_callback = new ui_v2_config_callback(this);
 		ui_config_manager::get()->add_callback(m_ui_v2_cfg_callback);
 	}
@@ -677,26 +810,23 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	if (cfg_adv_load_theme_file.get()) {
 
+		//todo
 		if (!bv2 || IsWine()) {
 			cj.read_colors_json(false);
 		}
 		else {
-			auto ui_cm = ui_config_manager::tryGet();
-			if (ui_cm.is_valid()) {
-				dark = ui_cm->is_dark_mode();
-				cj.read_colors_json(dark);
-			}
-			else {
-				console::formatter() << "[" << COMPONENT_NAME << "] : " << "Failed to access ui config manager.";
-			}
+			dark = ui_config_manager::g_is_dark_mode();
+			cj.read_colors_json(dark);
 		}
 	}
 	else {
+		// no theme - default colors
 		vgen_colors = vgen_colors_defaults;
 		vlex_colors = vlex_colors_defaults;
 		vindicator_colors = vindicator_colors_defaults;
 	}
 
+	SetupFonts();
 	InitControls(dark);
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
@@ -946,6 +1076,7 @@ namespace ast
 	{
 	public:
 		visitor_build_syntax_tree(titleformat_debugger &_debugger) : debugger(_debugger) {}
+
 		void run(CTreeViewCtrl _treeView, block_expression *root)
 		{
 			treeView = _treeView;
@@ -955,9 +1086,9 @@ namespace ast
 		}
 
 	private:
-		CTreeViewCtrl treeView;
-		HTREEITEM parent;
-		t_size param_index;
+		CTreeViewCtrl treeView = nullptr;
+		HTREEITEM parent = {};
+		t_size param_index = 0;
 
 		titleformat_debugger &debugger;
 
@@ -1045,7 +1176,9 @@ void CTitleFormatSandboxDialog::UpdateScriptSyntaxTree()
 
 void CTitleFormatSandboxDialog::UpdateTrace()
 {
-	if (m_script_update_pending) return;
+	if (m_script_update_pending) {
+		return;
+	}
 
 	m_selfrag = ast::fragment();
 
