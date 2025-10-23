@@ -46,6 +46,8 @@ static cfg_string cfg_format(guid_cfg_format,
 );
 
 static advconfig_checkbox_factory cfg_adv_load_theme_file("Load theme file", "foo_tfsandbox_mod.load_theme_file", guid_cfg_adv_load_theme_file, guid_tfsandbox_branch, order_load_theme_file, true);
+static advconfig_checkbox_factory cfg_adv_use_console_font("Use foobar2000 console font and font size", "foo_tfsandbox_mod.use_console_font", guid_cfg_adv_use_console_font, guid_tfsandbox_branch, order_use_console_font, 8);
+static advconfig_integer_factory cfg_adv_tf_font_size("Stock font size (6..24)", "foo_tfsandbox_mod.tf_font_size", guid_cfg_adv_tf_font_size, guid_tfsandbox_branch, order_tf_font_size, 9, 6 /*minimum value*/, 24 /*maximum value*/);
 
 static COLORREF BlendColor(COLORREF color1, DWORD weight1, COLORREF color2, DWORD weight2)
 {

@@ -15,6 +15,14 @@ static const GUID guid_tfsandbox_branch =
 static const GUID guid_cfg_adv_load_theme_file =
 { 0xbe578b68, 0xd6b5, 0x450a, { 0x96, 0xe, 0x77, 0xa5, 0xe3, 0x7a, 0xe5, 0x50 } };
 
+// {B3FA77FA-B88B-4559-B732-B9DEAE7C4E7F}
+static const GUID guid_cfg_adv_use_console_font =
+{ 0xb3fa77fa, 0xb88b, 0x4559, { 0xb7, 0x32, 0xb9, 0xde, 0xae, 0x7c, 0x4e, 0x7f } };
+
+// {BF628C38-F339-4EEC-904D-CF01667CBD57}
+static const GUID guid_cfg_adv_tf_font_size =
+{ 0xbf628c38, 0xf339, 0x4eec, { 0x90, 0x4d, 0xcf, 0x1, 0x66, 0x7c, 0xbd, 0x57 } };
+
 // {59800CE1-1B77-49C7-A1DD-2A1E3B54E1D4}
 static const GUID guid_cfg_adv_max_buffer =
 { 0x59800ce1, 0x1b77, 0x49c7, { 0xa1, 0xdd, 0x2a, 0x1e, 0x3b, 0x54, 0xe1, 0xd4 } };
@@ -25,6 +33,8 @@ static const GUID guid_cfg_adv_max_buffer_disables_tree =
 
 enum {
 	order_load_theme_file = 1,
+	order_use_console_font,
+	order_tf_font_size,
 	order_max_buffer,
 	order_max_buffer_disables_tree,
 };
