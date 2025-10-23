@@ -57,7 +57,7 @@ static COLORREF BlendColor(COLORREF color1, DWORD weight1, COLORREF color2, DWOR
 	return RGB(r, g, b);
 }
 
-static void LoadMarkerIcon(CSciLexerCtrl sciLexer, int markerNumber, LPCTSTR name)
+static void LoadMarkerIcon(Scintilla::CScintillaCtrl& sciLexer, int markerNumber, LPCTSTR name)
 {
 	CIcon icon;
 	icon.LoadIcon(name, 16, 16);
@@ -315,7 +315,8 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 
 	rCtrlValue.SetCodePage(SC_CP_UTF8);
 
-	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
+	SetupTitleFormatStyles(dark_alpha);
+	SetupPreviewStyles();
 
 	// Set up styles
 	SetupTitleFormatStyles(m_editor, dark_alpha);
@@ -345,28 +346,13 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 	m_treeScript.SetImageList(imageList);
 }
 
-void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer, bool dark_alpha)
+void CTitleFormatSandboxDialog::SetupTitleFormatStyles(bool dark_alpha)
 {
-	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
-
-	// MARGIN
-
-	rCtrlScript.SetMarginTypeN(0, Scintilla::MarginType::Number);
-	rCtrlScript.SetMarginWidthN(0, rCtrlScript.TextWidth(STYLE_LINENUMBER, "_99"));
-
-	sciLexer.SetMarginTypeN(1, SC_MARGIN_BACK);
-	sciLexer.SetMarginMaskN(1, SC_MASK_FOLDERS);
-	sciLexer.SetMarginWidthN(1, 16);
-	sciLexer.SetMarginSensitiveN(1, true);
-
-	// MAIN BACK/FORE COLORS
 
 	COLORREF background;
 	COLORREF foreground;
 	COLORREF selbackground;
 	COLORREF selforeground;
-
-	///////////////////////////////////////////////////////////////
 
 	background = get_gen_color(mgen_colors["background"]);
 	foreground = get_gen_color(mgen_colors["foreground"]);
@@ -374,15 +360,45 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer, b
 	selbackground = get_gen_color(mgen_colors["selection background"]);
 	selforeground = get_gen_color(mgen_colors["selection foreground"]);
 
-	///////////////////////////////////////////////////////////////
+	//--
+
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
+	//(1) 
+	rCtrlScript.StyleSetFore(STYLE_DEFAULT, foreground);
+	rCtrlScript.StyleSetBack(STYLE_DEFAULT, background);
+
+	//(2)
+	rCtrlScript.StyleClearAll();
+
+	// MARGIN
+
+	rCtrlScript.MarginSetStyle(0, STYLE_LINENUMBER);
+
+	// first margin column for line numbers...
+
+	rCtrlScript.SetMarginTypeN(0, Scintilla::MarginType::Number);
+	rCtrlScript.SetMarginWidthN(0, rCtrlScript.TextWidth(STYLE_LINENUMBER, "_999"));
+
+	// second margin column for line numbers...
+
+	rCtrlScript.SetMarginTypeN(1, Scintilla::MarginType::Back);
+	rCtrlScript.SetMarginMaskN(1, SC_MASK_FOLDERS);
+	rCtrlScript.SetMarginWidthN(1, 16);
+	rCtrlScript.SetMarginSensitiveN(1, true);
+
+	//	// line number margin style
+
+	rCtrlScript.StyleSetFore(STYLE_LINENUMBER, foreground);
+	rCtrlScript.StyleSetBack(STYLE_LINENUMBER, BlendColor(foreground, 1, background, 20));
+
+	// WINE TREE VIEW
 
 	if (IsWine()) {
 		TreeView_SetBkColor(m_treeScript, background);
 	}
 
-	rCtrlScript.SetEdgeColour(background);
-
-	sciLexer.SetFoldMarginColour(true, background);
+	rCtrlScript.SetFoldMarginColour(true, background);
 
 	int markerNumbers[] = {
 		SC_MARKNUM_FOLDEROPEN,
@@ -403,138 +419,124 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer, b
 	for (int index = 0; index < (sizeof(markerNumbers) / sizeof(markerNumbers[0])); ++index)
 	{
 		int markerNumber = markerNumbers[index];
-		sciLexer.MarkerSetFore(markerNumber, cr_mf);
-		sciLexer.MarkerSetBack(markerNumber, cr_mb);
-		sciLexer.MarkerSetBackSelected(markerNumber, cr_msb);
+		rCtrlScript.MarkerSetFore(markerNumber, cr_mf);
+		rCtrlScript.MarkerSetBack(markerNumber, cr_mb);
+		rCtrlScript.MarkerSetBackSelected(markerNumber, cr_msb);
 	}
 
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEROPEN, SC_MARK_BOXMINUS);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDER, SC_MARK_BOXPLUS);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERSUB, SC_MARK_VLINE);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERTAIL, SC_MARK_LCORNER);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEREND, SC_MARK_BOXPLUSCONNECTED);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDEROPENMID, SC_MARK_BOXMINUSCONNECTED);
-	sciLexer.MarkerDefine(SC_MARKNUM_FOLDERMIDTAIL, SC_MARK_TCORNER);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDEROPEN, Scintilla::MarkerSymbol::BoxMinus/*SC_MARK_BOXMINUS*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDER, Scintilla::MarkerSymbol::BoxPlus/*SC_MARK_BOXPLUS*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDERSUB, Scintilla::MarkerSymbol::VLine/*SC_MARK_VLINE*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDERTAIL, Scintilla::MarkerSymbol::LCorner/*SC_MARK_LCORNER*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDEREND, Scintilla::MarkerSymbol::BoxPlusConnected/*SC_MARK_BOXPLUSCONNECTED*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDEROPENMID, Scintilla::MarkerSymbol::BoxMinusConnected/*SC_MARK_BOXMINUSCONNECTED*/);
+	rCtrlScript.MarkerDefine(SC_MARKNUM_FOLDERMIDTAIL, Scintilla::MarkerSymbol::TCorner/*SC_MARK_TCORNER*/);
 
 	// WRAP AND FOLD
 
-	sciLexer.SetAutomaticFold(SC_AUTOMATICFOLD_CLICK);
-	sciLexer.SetWrapMode(SC_WRAP_WORD);
-	sciLexer.SetWrapVisualFlags(SC_WRAPVISUALFLAG_END);
+	rCtrlScript.SetAutomaticFold(Scintilla::AutomaticFold::Click/*SC_AUTOMATICFOLD_CLICK*/);
+	rCtrlScript.SetWrapMode(Scintilla::Wrap::Word/*SC_WRAP_WORD*/);
+	rCtrlScript.SetWrapVisualFlags(Scintilla::WrapVisualFlag::End/*SC_WRAPVISUALFLAG_END*/);
 
-	// ---------  L E X E R -------------
-	
-	// FORE/BACKGROUND , SEL FORE/BACKGROUND
-	
-	//rCtrlScript.SetFoldMarginColour(background);
-	//rCtrlScript.SetElementColour(...);
-
-	sciLexer.StyleSetFont(STYLE_DEFAULT, "Consolas");
-	//sciLexer.StyleSetSizeFractional(STYLE_DEFAULT, 800);
-	sciLexer.StyleSetFore(STYLE_DEFAULT, foreground);
-	sciLexer.StyleSetBack(STYLE_DEFAULT, background);
-
-	sciLexer.SetSelFore(true, selforeground);
-	sciLexer.SetSelBack(true, selbackground);
-
-	sciLexer.StyleClearAll();
+	// SELECTION
 
 	COLORREF cr_tmp = get_gen_color(mgen_colors["selection foreground"]);
 
-	sciLexer.SetSelFore(true, cr_tmp);
+	rCtrlScript.SetSelFore(true, cr_tmp);
 
 	cr_tmp = get_gen_color(mgen_colors["selection background"]);
 
-	sciLexer.SetSelBack(true, cr_tmp);
+	rCtrlScript.SetSelBack(true, cr_tmp);
 
 	// CALL TIPS
-	sciLexer.CallTipUseStyle(50);
 
-	sciLexer.StyleSetFont(STYLE_CALLTIP, "Verdana");
+	rCtrlScript.CallTipUseStyle(50);
 
 	cr_tmp = get_gen_color(mgen_colors["calltip foreground"]);
 
-	sciLexer.StyleSetFore(STYLE_CALLTIP, cr_tmp);
+	rCtrlScript.StyleSetFore(STYLE_CALLTIP, cr_tmp);
 
 	cr_tmp = get_gen_color(mgen_colors["calltip background"]);
-	sciLexer.StyleSetBack(STYLE_CALLTIP, cr_tmp);
+	rCtrlScript.StyleSetBack(STYLE_CALLTIP, cr_tmp);
 
-	char outlen[MAX_PATH];
-	if ((sciLexer.GetLexerLanguage(outlen) > 0))
-	{
-		sciLexer.SetProperty("fold", "1");
+	char outlen[MAX_PATH] = {0};
+
+	if (rCtrlScript.GetLexerLanguage(outlen) && !strncmp(outlen, "titleformat",MAX_PATH)) {
+
+		// LEXER
 
 		// Comments
 		COLORREF crcol = get_lex_color(mlex_colors["comment"]);
 
-		sciLexer.StyleSetFore(1 /*SCE_TITLEFORMAT_COMMENTLINE*/, crcol);
-		sciLexer.StyleSetFore(1 + 64 /*SCE_TITLEFORMAT_COMMENTLINE*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetFore(1 /*SCE_TITLEFORMAT_COMMENTLINE*/, crcol);
+		rCtrlScript.StyleSetFore(1 + 64 /*SCE_TITLEFORMAT_COMMENTLINE*/, BlendColor(crcol, 1, background, 1));
 
 		// Operators
 		crcol = get_lex_color(mlex_colors["operator"]);
 
-		sciLexer.StyleSetFore(2, /*SCE_TITLEFORMAT_OPERATOR*/crcol);
-		sciLexer.StyleSetBold(2 /*SCE_TITLEFORMAT_OPERATOR*/, true);
-		sciLexer.StyleSetFore(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, BlendColor(crcol, 1, background, 1));
-		sciLexer.StyleSetBold(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, true);
+		rCtrlScript.StyleSetFore(2, /*SCE_TITLEFORMAT_OPERATOR*/crcol);
+		rCtrlScript.StyleSetBold(2 /*SCE_TITLEFORMAT_OPERATOR*/, true);
+		rCtrlScript.StyleSetFore(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetBold(2 + 64 /*SCE_TITLEFORMAT_OPERATOR | inactive*/, true);
 
 		// Fields
 		crcol = get_lex_color(mlex_colors["field"]);
 
-		sciLexer.StyleSetFore(3 /*SCE_TITLEFORMAT_FIELD*/, crcol);
-		sciLexer.StyleSetFore(3 + 64 /*SCE_TITLEFORMAT_FIELD | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetFore(3 /*SCE_TITLEFORMAT_FIELD*/, crcol);
+		rCtrlScript.StyleSetFore(3 + 64 /*SCE_TITLEFORMAT_FIELD | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Strings (Single quoted string)
 		crcol = get_lex_color(mlex_colors["literal string"]);
 
-		sciLexer.StyleSetFore(4 /*SCE_TITLEFORMAT_STRING*/, /*foreground*/crcol);
-		sciLexer.StyleSetItalic(4 /*SCE_TITLEFORMAT_STRING*/, true);
-		sciLexer.StyleSetFore(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, BlendColor(crcol, 1, background, 1));
-		sciLexer.StyleSetItalic(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, true);
+		rCtrlScript.StyleSetFore(4 /*SCE_TITLEFORMAT_STRING*/, crcol);
+		rCtrlScript.StyleSetItalic(4 /*SCE_TITLEFORMAT_STRING*/, true);
+		rCtrlScript.StyleSetFore(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetItalic(4 + 64 /*SCE_TITLEFORMAT_STRING | inactive*/, true);
 
 		// Text (Unquoted string)
 		crcol = get_lex_color(mlex_colors["string"]);
 
-		sciLexer.StyleSetFore(5 /*SCE_TITLEFORMAT_LITERALSTRING*/, /*foreground*/crcol);
-		sciLexer.StyleSetFore(5 + 64 /*SCE_TITLEFORMAT_LITERALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetFore(5 /*SCE_TITLEFORMAT_LITERALSTRING*/, crcol);
+		rCtrlScript.StyleSetFore(5 + 64 /*SCE_TITLEFORMAT_LITERALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Characters (%%, &&, '')
 		crcol = get_lex_color(mlex_colors["special string"]);
 
-		sciLexer.StyleSetFore(6 /*SCE_TITLEFORMAT_SPECIALSTRING*/, /*foreground*/crcol);
-		sciLexer.StyleSetFore(6 + 64/*SCE_TITLEFORMAT_SPECIALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetFore(6 /*SCE_TITLEFORMAT_SPECIALSTRING*/, crcol);
+		rCtrlScript.StyleSetFore(6 + 64/*SCE_TITLEFORMAT_SPECIALSTRING | inactive*/, BlendColor(crcol, 1, background, 1));
 
 		// Functions (todo:identifier?)
 		crcol = get_lex_color(mlex_colors["identifier"]);
-		sciLexer.StyleSetFore(7, /*SCE_TITLEFORMAT_IDENTIFIER*/ crcol);
-		sciLexer.StyleSetFore(7 + 64 /*SCE_TITLEFORMAT_IDENTIFIER | inactive*/, BlendColor(crcol, 1, background, 1));
+		rCtrlScript.StyleSetFore(7, /*SCE_TITLEFORMAT_IDENTIFIER*/ crcol);
+		rCtrlScript.StyleSetFore(7 + 64 /*SCE_TITLEFORMAT_IDENTIFIER | inactive*/, BlendColor(crcol, 1, background, 1));
 	}
 
+	// INDICATORS
+
 	// inactive code
-
-	//sciLexer.IndicSetStyle(indicator_inactive_code, INDIC_DIAGONAL);
-	//sciLexer.IndicSetFore(indicator_inactive_code, RGB(64, 64, 64));
-
 	tfRGB col = vindicator_colors[0].second;
 	COLORREF crcol = RGB(col.r, col.g, col.b);
 
-	sciLexer.IndicSetStyle(indicator_inactive_code, INDIC_STRAIGHTBOX);
-	sciLexer.IndicSetFore(indicator_inactive_code, crcol);
-	sciLexer.IndicSetUnder(indicator_inactive_code, true);
+	rCtrlScript.IndicSetStyle(indicator_inactive_code, Scintilla::IndicatorStyle::StraightBox/*INDIC_STRAIGHTBOX*/);
+	rCtrlScript.IndicSetFore(indicator_inactive_code, crcol);
+	rCtrlScript.IndicSetUnder(indicator_inactive_code, true);
 
-	sciLexer.Call(SCI_INDICSETALPHA, indicator_inactive_code, 20);
-	sciLexer.Call(SCI_INDICSETOUTLINEALPHA, indicator_inactive_code, 20);
+	rCtrlScript.Call(SCI_INDICSETALPHA, indicator_inactive_code, 20);
+	rCtrlScript.Call(SCI_INDICSETOUTLINEALPHA, indicator_inactive_code, 20);
 
 	// selected fragment
 	col = vindicator_colors[1].second;
 	crcol = RGB(col.r, col.g, col.b);
 
-	sciLexer.IndicSetStyle(indicator_fragment, INDIC_STRAIGHTBOX);
-	sciLexer.IndicSetFore(indicator_fragment, crcol);
-	sciLexer.IndicSetUnder(indicator_fragment, true);
+	rCtrlScript.IndicSetStyle(indicator_fragment, Scintilla::IndicatorStyle::StraightBox/*INDIC_STRAIGHTBOX*/);
+	rCtrlScript.IndicSetFore(indicator_fragment, /*RGB(255,0,0)*/crcol);
+	rCtrlScript.IndicSetUnder(indicator_fragment, true);
+
 	if (dark_alpha) {
-		auto alpha = sciLexer.IndicGetAlpha(indicator_fragment);
-		sciLexer.IndicSetAlpha(indicator_fragment, (std::min)(255, alpha + 30));
+		auto alpha = rCtrlScript.IndicGetAlpha(indicator_fragment);
+		//todo
+		int alpha_val = (std::min)(255, (int)alpha + 30);
+		rCtrlScript.Call(static_cast<UINT>(Scintilla::Message::IndicSetAlpha), static_cast<WPARAM>(indicator_fragment), static_cast<LPARAM>(alpha_val));
 	}
 
 	// errors
@@ -545,20 +547,46 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(CSciLexerCtrl sciLexer, b
 	sciLexer.IndicSetFore(indicator_error, crcol);
 }
 
-void CTitleFormatSandboxDialog::SetupPreviewStyles(CSciLexerCtrl sciLexer)
+void CTitleFormatSandboxDialog::SetupPreviewStyles()
 {
-	sciLexer.SetWrapMode(SC_WRAP_WORD);
-	sciLexer.SetWrapVisualFlags(SC_WRAPVISUALFLAG_END);
 
-	sciLexer.SetMarginTypeN(0, SC_MARGIN_NUMBER);
-	sciLexer.SetMarginWidthN(0, sciLexer.TextWidth(STYLE_LINENUMBER, "_99"));
+	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
 
-	sciLexer.SetMarginTypeN(1, SC_MARGIN_BACK);
-	sciLexer.SetMarginWidthN(1, 16);
+	COLORREF background = get_gen_color(mgen_colors["background"]);
+	COLORREF foreground = get_gen_color(mgen_colors["foreground"]);
 
-	LoadMarkerIcon(sciLexer, 0, MAKEINTRESOURCE(IDI_FUGUE_CROSS));
-	LoadMarkerIcon(sciLexer, 1, MAKEINTRESOURCE(IDI_FUGUE_TICK));
-	LoadMarkerIcon(sciLexer, 2, MAKEINTRESOURCE(IDI_FUGUE_EXCLAMATION));
+	// WRAP
+
+	rCtrlValue.SetWrapMode(Scintilla::Wrap::Word/*(SC_WRAP_WORD)*/);
+	rCtrlValue.SetWrapVisualFlags(Scintilla::WrapVisualFlag::End/*(SC_WRAPVISUALFLAG_END)*/);
+
+	// MARGINS
+
+	// 0
+
+	rCtrlValue.SetMarginTypeN(0, Scintilla::MarginType::Number/*, SC_MARGIN_NUMBER*/);
+	rCtrlValue.SetMarginWidthN(0, rCtrlValue.TextWidth(STYLE_LINENUMBER, "_999"));
+
+	// 1
+
+	rCtrlValue.SetMarginTypeN(1,Scintilla::MarginType::Back/*, SC_MARGIN_BACK*/);
+	rCtrlValue.SetMarginWidthN(1, 16); //pixel width
+
+	// line number margin style
+
+	rCtrlValue.StyleSetFore(STYLE_LINENUMBER, foreground);
+	rCtrlValue.StyleSetBack(STYLE_LINENUMBER, BlendColor(foreground, 1, background, 20));
+
+	// MARKER ICONS
+
+	LoadMarkerIcon(rCtrlValue, 0, MAKEINTRESOURCE(IDI_FUGUE_CROSS));
+	LoadMarkerIcon(rCtrlValue, 1, MAKEINTRESOURCE(IDI_FUGUE_TICK));
+	LoadMarkerIcon(rCtrlValue, 2, MAKEINTRESOURCE(IDI_FUGUE_EXCLAMATION));
+
+	// FORE/BACKGROUND (LEXER NOT DEFINED)
+
+	rCtrlValue.StyleSetFore(0, foreground);
+	rCtrlValue.StyleSetBack(0, background);
 }
 
 Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
@@ -671,11 +699,10 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	InitControls(dark);
 
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+
 	m_script_update_pending = true;
 	//m_updating_fragment = false;
-
-	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
-	rCtrlScript = GetCtrl(IDC_SCRIPT);
 
 	rCtrlScript.SetText(cfg_format);
 	rCtrlScript.SetEmptySelection(0);

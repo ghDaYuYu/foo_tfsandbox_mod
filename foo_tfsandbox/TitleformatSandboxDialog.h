@@ -97,9 +97,9 @@ public:
 	void UpdateInactiveCodeIndicator();
 
 	void InitControls(bool dark_alpha);
-	void SetupTitleFormatStyles(CSciLexerCtrl sciLexer, bool dark_alpha);
-	/*void SetupTitleFormatStyles_new();*/
-	void SetupPreviewStyles(CSciLexerCtrl sciLexer);
+	void SetupFonts();
+	void SetupTitleFormatStyles(bool dark_alpha);
+	void SetupPreviewStyles();
 
 	bool find_fragment(ast::fragment &out, int start, int end);
 	inline bool find_fragment(ast::fragment &out, int pos) {return find_fragment(out, pos, pos);}
