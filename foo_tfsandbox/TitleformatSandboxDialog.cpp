@@ -143,7 +143,36 @@ CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resize
 	pfc::string8 install_dir = pfc::string_directory(core_api::get_my_full_path());
 	pfc::string8 scintilla_path = PFC_string_formatter() << install_dir << "\\Scintilla.dll";
 
-	m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
+	try {
+		try {
+			bool v = filesystem::g_exists(scintilla_path, fb2k::noAbort);
+			if (v) {
+				m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
+			}
+		}
+		catch (std::exception const& e) {
+			console::formatter() << "[" << COMPONENT_NAME << "] :" << "Componenet error loading scindilla.dll: " << e << " (on: " << scintilla_path << ")";
+			throw;
+		}
+	}
+	catch (exception_io_denied const&) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Access denied.";//"Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
+		//return;
+	}
+	catch (exception_io_sharing_violation const&) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "IO sharing violation.";
+		//return;
+	}
+	catch (exception_io_file_corrupted const&) { // happens
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "File corrupted.";
+		//return;
+	}
+	catch (...) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Unknown error.";
+		//return;
+	}
+
+	//m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
 
 	if (!m_scintillaScope.IsLoaded()) {
 		console::formatter() << "[" << COMPONENT_NAME << "] :" << scintilla_path << " not loaded.";
@@ -152,7 +181,38 @@ CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resize
 
 	pfc::string8 lexilla_path = PFC_string_formatter() << install_dir << "\\Lexilla.dll";
 
-	m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
+	//m_lexTitleformatScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexTitleFormat_path.get_ptr()));
+
+	try {
+		try {
+			bool v = filesystem::g_exists(lexilla_path, fb2k::noAbort);
+			if (v) {
+				m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
+			}
+		}
+		catch (std::exception const& e) {
+			console::formatter() << "[" << COMPONENT_NAME << "] :" << "Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
+			throw;
+		}
+	}
+	catch (exception_io_denied const&) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Access denied.";//"Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
+		//return;
+	}
+	catch (exception_io_sharing_violation const&) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "IO sharing violation.";
+		//return;
+	}
+	catch (exception_io_file_corrupted const&) { // happens
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "File corrupted.";
+		//return;
+	}
+	catch (...) {
+		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Unknown error.";
+		//return;
+	}
+
+	//m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
 
 	if (!m_lexillaScope.IsLoaded()) {
 		console::formatter() << "[" << COMPONENT_NAME << "] :" << lexilla_path << " not loaded.";
@@ -1143,9 +1203,8 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 				if (m_debugger.get_value(frag[0], string_value, bool_value))
 				{
 
-					int tabSize = pfc::max_t(
-						rCtrlScript.TextWidth(STYLE_CALLTIP, "Text value: "),
-						rCtrlScript.TextWidth(STYLE_CALLTIP, "Boolean value: "));
+					int tabSize = pfc::max_t(rCtrlScript.TextWidth(STYLE_CALLTIP, "Text value: "),
+							rCtrlScript.TextWidth(STYLE_CALLTIP, "Boolean value: "));
 
 					rCtrlScript.CallTipUseStyle(tabSize);
 
