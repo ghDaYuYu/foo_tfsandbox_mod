@@ -133,96 +133,96 @@ void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
 	}
 
 	colors_json cj;
-	bool dark = ui_config_manager::g_is_dark_mode();
+	bool dark = false;
+	dark = ui_config_manager::g_is_dark_mode() || is_wine_dark_no_theme;
 	cj.read_colors_json(dark);
+
 	p_dlg->InitControls(dark);
 }
 
-CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resizeParams), m_script_update_pending(false),
+LONG GetStringRegKey(HKEY hKey, const std::wstring& strValueName, std::wstring& strValue, const std::wstring& strDefaultValue)
+{
+	strValue = strDefaultValue;
+	WCHAR szBuffer[512];
+	DWORD dwBufferSize = sizeof(szBuffer);
+	ULONG nError;
+	nError = RegQueryValueExW(hKey, strValueName.c_str(), 0, NULL, (LPBYTE)szBuffer, &dwBufferSize);
+	if (ERROR_SUCCESS == nError)
+	{
+		strValue = szBuffer;
+	}
+	return nError;
+}
+
+bool CheckDarkLuminance()
+{
+	bool check_dark = false;
+	
+	HKEY openKey = HKEY_CURRENT_USER;
+	const char* regkey = "Control Panel\\Colors";
+
+	HKEY hKey = 0;
+	TCHAR wregkey[MAX_PATH] = { 0 };
+	pfc::stringcvt::convert_utf8_to_wide(wregkey, MAX_PATH, regkey, strlen(regkey));
+
+	LONG retValue = RegOpenKeyEx(openKey, wregkey, 0, KEY_READ, &hKey);
+
+	std::wstring strValueOfButtonFace;
+	std::wstring strValueOfButtonText;
+
+	bool done = GetStringRegKey(hKey, L"ButtonFace", strValueOfButtonFace, L"") == ERROR_SUCCESS;
+	done &= GetStringRegKey(hKey, L"ButtonText", strValueOfButtonText, L"") == ERROR_SUCCESS;
+
+	if (done) {
+
+		pfc::string8 buf = W2U(strValueOfButtonFace.c_str());
+		auto tokens = StringSplit(buf.c_str(), ' ');
+
+		COLORREF back = RGB(atoi(tokens[0].c_str()), atoi(tokens[1].c_str()), atoi(tokens[2].c_str()));
+
+		buf = W2U(strValueOfButtonText.c_str());
+		tokens = StringSplit(buf.c_str(), ' ');
+
+		COLORREF fore = RGB(atoi(tokens[0].c_str()), atoi(tokens[1].c_str()), atoi(tokens[2].c_str()));
+
+		check_dark = colors_json::is_dark_luminance(fore, back);
+	}
+
+	RegCloseKey(hKey);
+	return check_dark;
+}
+
+CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() : m_dlgResizeHelper(resizeParams), m_script_update_pending(false),
 	m_dlgPosTracker(cfg_window_position)
 {
 	m_dlgResizeHelper.set_min_size(342, 232);
-	m_dlgResizeHelper.m_autoSizeGrip = false;
+	//m_dlgResizeHelper.m_autoSizeGrip = false;
 
-	pfc::string8 install_dir = pfc::string_directory(core_api::get_my_full_path());
-	pfc::string8 scintilla_path = PFC_string_formatter() << install_dir << "\\Scintilla.dll";
+	std::call_once(is_v2_or_wine_dark_flag, []() {
+		is_v2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
+		is_wine_dark_no_theme = false;
 
-	try {
-		try {
-			bool v = filesystem::g_exists(scintilla_path, fb2k::noAbort);
-			if (v) {
-				m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
+		if (IsWine()) {
+
+			bool wine_dark = CheckDarkLuminance();
+
+			TCHAR theme_name[MAX_PATH] = {0};
+			HRESULT hres = GetCurrentThemeName(theme_name, MAX_PATH, nullptr, 0, nullptr, 0);
+			if (hres == S_OK) {
+				hres = GetThemeDocumentationProperty(theme_name,
+					SZ_THDOCPROP_DISPLAYNAME, theme_name, MAX_PATH);
 			}
+			pfc::string8 str_cvt = pfc::stringcvt::string_utf8_from_os(theme_name, MAX_PATH);
+			is_wine_dark_no_theme = wine_dark && !str_cvt.length();
 		}
-		catch (std::exception const& e) {
-			console::formatter() << "[" << COMPONENT_NAME << "] :" << "Componenet error loading scindilla.dll: " << e << " (on: " << scintilla_path << ")";
-			throw;
-		}
-	}
-	catch (exception_io_denied const&) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Access denied.";//"Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
-		//return;
-	}
-	catch (exception_io_sharing_violation const&) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "IO sharing violation.";
-		//return;
-	}
-	catch (exception_io_file_corrupted const&) { // happens
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "File corrupted.";
-		//return;
-	}
-	catch (...) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Unknown error.";
-		//return;
-	}
-
-	//m_scintillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(scintilla_path.get_ptr()));
-
-	if (!m_scintillaScope.IsLoaded()) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << scintilla_path << " not loaded.";
-		return;
-	}
-
-	pfc::string8 lexilla_path = PFC_string_formatter() << install_dir << "\\Lexilla.dll";
-
-	//m_lexTitleformatScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexTitleFormat_path.get_ptr()));
-
-	try {
-		try {
-			bool v = filesystem::g_exists(lexilla_path, fb2k::noAbort);
-			if (v) {
-				m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
-			}
-		}
-		catch (std::exception const& e) {
-			console::formatter() << "[" << COMPONENT_NAME << "] :" << "Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
-			throw;
-		}
-	}
-	catch (exception_io_denied const&) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Access denied.";//"Componenet error loading lexilla.dll: " << e << " (on: " << lexilla_path << ")";
-		//return;
-	}
-	catch (exception_io_sharing_violation const&) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "IO sharing violation.";
-		//return;
-	}
-	catch (exception_io_file_corrupted const&) { // happens
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "File corrupted.";
-		//return;
-	}
-	catch (...) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << "Unknown error.";
-		//return;
-	}
+	});
 
 	/*bool res = */RegisterScintillaModule(m_scintillaScope);
 }
 
 CTitleFormatSandboxDialog::~CTitleFormatSandboxDialog()
 {
-	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
-	if (bv2) {
+	if (is_v2) {
 		ui_config_manager::get()->remove_callback(m_ui_v2_cfg_callback);
 		delete m_ui_v2_cfg_callback;
 	}
@@ -340,7 +340,11 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 #if defined(USE_EXPLORER_THEME)
 	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 #else
-	if (m_dark.IsDark() || IsWine()) {
+
+	if (dark_alpha || is_wine_dark_no_theme) {
+		imageList.CreateFromImage(IDB_SYMBOLS32_DARK, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
+	}
+	else {
 		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 	}
 	else {
@@ -556,8 +560,6 @@ void CTitleFormatSandboxDialog::SetupTitleFormatStyles(bool dark_alpha)
 
 void CTitleFormatSandboxDialog::SetupFonts() {
 
-	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
-
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 
 	// CALLTIPS
@@ -572,17 +574,11 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 
 	auto PointSize = 0;
 
-	if (bv2 && cfg_adv_use_console_font.get()) {
+	if (is_v2 && cfg_adv_use_console_font.get()) {
 
 		auto ui_cfg_mng = ui_config_manager::get();
 
-		if (m_hFont && !m_font_managed) {
-			DeleteObject(m_hFont);
-			m_hFont = nullptr;
-		}
-
 		m_hFont = ui_cfg_mng->query_font(ui_font_console);
-		m_font_managed = true;
 
 		CFont cFont;
 		cFont.Attach(m_hFont);
@@ -622,9 +618,9 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 	// VALUES (font size)
 
 	auto& rCtrlValue{ GetCtrl(IDC_VALUE) };
-	if (bv2 && cfg_adv_use_console_font.get()) {
-		rCtrlValue.StyleSetSizeFractional(STYLE_DEFAULT, PointSize * 100);
-		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, PointSize * 100);
+	if (is_v2 && cfg_adv_use_console_font.get()) {
+		rCtrlValue.StyleSetSizeFractional(STYLE_DEFAULT, PointSize/*cfg_adv_tf_font_size.get()*/ * 100);
+		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, PointSize/*cfg_adv_tf_font_size.get()*/ * 100);
 	}
 	else {
 		int desiredHeight = cfg_adv_tf_font_size.get();
@@ -634,7 +630,7 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 
 	// TREE
 
-	if (bv2 && cfg_adv_use_console_font.get()) {
+	if (is_v2 && cfg_adv_use_console_font.get()) {
 
 		auto ui_cfg_mng = ui_config_manager::get();
 
@@ -773,8 +769,7 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	SetIcon(static_api_ptr_t<ui_control>()->get_main_icon());
 
-	bool bv2 = core_version_info_v2::get()->test_version(2, 0, 0, 0);
-	if (bv2 && m_ui_v2_cfg_callback == nullptr) {
+	if (is_v2 && m_ui_v2_cfg_callback == nullptr) {
 		m_ui_v2_cfg_callback = new ui_v2_config_callback(this);
 		ui_config_manager::get()->add_callback(m_ui_v2_cfg_callback);
 	}
@@ -809,17 +804,17 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	bool dark = false;
 	colors_json cj;
+
 	std::vector<std::pair<size_t, tfRGB>> vcolors;
 
 	if (cfg_adv_load_theme_file.get()) {
 
-		//todo
-		if (!bv2 || IsWine()) {
-			cj.read_colors_json(false);
+		if (!is_v2) {
+				cj.read_colors_json(false);
 		}
 		else {
-			dark = ui_config_manager::g_is_dark_mode();
-			cj.read_colors_json(dark);
+				dark = ui_config_manager::g_is_dark_mode() || is_wine_dark_no_theme;
+				cj.read_colors_json(dark);
 		}
 	}
 	else {
@@ -855,7 +850,6 @@ void CTitleFormatSandboxDialog::OnDestroy()
 {
 	g_wndInstance = NULL;
 	static_api_ptr_t<message_loop>()->remove_message_filter(this);
-
 }
 
 void CTitleFormatSandboxDialog::OnCancel(UINT uNotifyCode, int nID, CWindow wndCtl)
@@ -1004,7 +998,6 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 		}
 		break;
 	}
-
 	return lResult;
 }
 
@@ -1045,6 +1038,7 @@ void CTitleFormatSandboxDialog::UpdateScript()
 		pfc::hires_timer parse_timer;
 		parse_timer.start();
 		m_debugger.parse(illa_utf8);
+
 		illa_utf8.ReleaseBuffer();
 
 		double parse_time = parse_timer.query();
@@ -1180,7 +1174,9 @@ void CTitleFormatSandboxDialog::UpdateScriptSyntaxTree()
 void CTitleFormatSandboxDialog::UpdateTrace()
 {
 	if (m_script_update_pending) {
+
 		return;
+
 	}
 
 	m_selfrag = ast::fragment();
@@ -1387,7 +1383,6 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 			}
 		}
 	}
-
 	return 0;
 }
 

@@ -2,13 +2,16 @@
 
 #include "resource.h"
 
+//todo: remove
+static std::once_flag is_v2_or_wine_dark_flag;
+
 #include "libPPUI/CDialogResizeHelper.h"
 #include "helpers/WindowPositionUtils.h"
 #include "helpers/DarkMode.h"
 
 #include "ILexer.h"
 #include "Scintilla.h"
-#include "atlscilexer.h"
+
 #include "ScintillaCtrl.h"
 
 #include "LibraryScope.h"
@@ -41,6 +44,9 @@ public:
 	cfgDialogPositionTracker m_dlgPosTracker;
 
 	fb2k::CDarkModeHooks m_dark;
+	inline static bool is_wine_dark_no_theme;
+	inline static bool is_v2;
+	static std::once_flag dark_no_theme_flag;
 
 	HWND m_editor = NULL;
 	HWND m_preview = NULL;
@@ -97,7 +103,7 @@ public:
 	void ClearInactiveCodeIndicator();
 	void UpdateInactiveCodeIndicator();
 
-	void InitControls(bool dark_alpha);
+	void InitControls(bool dark);
 	void SetupFonts();
 	void SetupTitleFormatStyles(bool dark_alpha);
 	void SetupPreviewStyles();
@@ -147,6 +153,5 @@ protected:
 
 	HFONT m_hFont = nullptr;
 	HFONT m_hTreeFont = nullptr;
-	bool m_font_managed = false;
 	bool m_tree_font_managed = false;
 };

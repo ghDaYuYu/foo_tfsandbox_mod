@@ -74,13 +74,13 @@ std::filesystem::path colors_json::genFilePath(bool dst, bool dark) {
 bool colors_json::copy_installation_theme_files() {
 
 	bool bres = false;
+	bool dark_theme = false;
 
-	bool dark = false;
 	while (true) {
-		auto os_dst = genFilePath(true, dark);
+		auto os_dst = genFilePath(true, dark_theme);
 		bool b_dst_exists = std::filesystem::exists(os_dst);
 		if (!b_dst_exists) {
-			auto os_src = genFilePath(false, dark);
+			auto os_src = genFilePath(false, dark_theme);
 			try {
 				if (std::filesystem::exists(os_src)) {
 					bres |= inst_copy_file(os_src, os_dst);
@@ -90,8 +90,8 @@ bool colors_json::copy_installation_theme_files() {
 				//..
 			}
 		}
-		if (!dark) {
-			dark = true;
+		if (!dark_theme) {
+			dark_theme = true;
 		}
 		else {
 			break;
@@ -99,22 +99,6 @@ bool colors_json::copy_installation_theme_files() {
 	}
 	return bres;
 }
-
-using Tokens = std::vector<std::string>;
-
-Tokens StringSplit(const std::string& text, int separator) {
-	Tokens vs(text.empty() ? 0 : 1);
-	for (const char ch : text) {
-		if (ch == separator) {
-			vs.emplace_back();
-		}
-		else {
-			vs.back() += ch;
-		}
-	}
-	return vs;
-}
-
 
 bool read_group(json_t* json, pfc::string8 groupname, const std::map<std::string, size_t> vdefs, std::vector<std::pair<size_t, tfRGB>>& vcolors) {
 
@@ -128,71 +112,71 @@ bool read_group(json_t* json, pfc::string8 groupname, const std::map<std::string
 
 		json_array_foreach(json, index, js_wobj) {
 
-		if (!json_is_object(js_wobj)) return false;
+			if (!json_is_object(js_wobj)) return false;
 
-		json_t* js_fld;
+			json_t* js_fld;
 
-		js_fld = json_object_get(js_wobj, groupname);
+			js_fld = json_object_get(js_wobj, groupname);
 
-		if (!js_fld) {
-			return false;
-		}
-
-		if (json_is_array(js_fld)) {
-			size_t n = 0; // json_array_size(js_fld);
-			json_t* js;
-			json_array_foreach(js_fld, n, js) {
-				auto js_att = json_object_get(js, "id");
-				const char* dmp_str_id = json_string_value(js_att);
-				js_att = json_object_get(js, "rgb");
-				const char* dmp_str_rgb = json_string_value(js_att);
-
-				using Tokens = std::vector<std::string>;
-				auto tokens = StringSplit(dmp_str_rgb, ',');
-
-				if (tokens.size() == 3) {
-
-					size_t chv;
-					size_t c = 0;
-
-					//red
-
-					pfc::string8 w = tokens.at(0).c_str(); w = w.trim(' ');
-					bool is_n = pfc::string_is_numeric(w);
-					if (is_n && (chv = atoi(w)) < 256) {
-						elem.second.r = static_cast<uint8_t>(chv);
-						c++;
-					}
-
-					//green
-
-					w = tokens.at(1).c_str(); w = w.trim(' ');
-					is_n = pfc::string_is_numeric(w);
-					if (is_n && (chv = atoi(w)) < 256) {
-						elem.second.g = static_cast<uint8_t>(chv);
-						c++;
-					}
-
-					//blue
-
-					w = tokens.at(2).c_str(); w = w.trim(' ');
-					is_n = pfc::string_is_numeric(w);
-					if (is_n && (chv = atoi(w)) < 256) {
-						elem.second.b = static_cast<uint8_t>(chv);
-						c++;
-					}
-					if (c == 3) {
-						auto it = vdefs.find(dmp_str_id);
-						if (it != vdefs.end()) {
-							vcolors.emplace_back(std::pair(it->second, elem.second));
-						}
-					}
-				}
+			if (!js_fld) {
+				return false;
 			}
-		} // for each
-		return true;
+
+			if (json_is_array(js_fld)) {
+				size_t n = 0; // json_array_size(js_fld);
+				json_t* js;
+				json_array_foreach(js_fld, n, js) {
+					auto js_att = json_object_get(js, "id");
+					const char* dmp_str_id = json_string_value(js_att);
+					js_att = json_object_get(js, "rgb");
+					const char* dmp_str_rgb = json_string_value(js_att);
+
+					using Tokens = std::vector<std::string>;
+					auto tokens = StringSplit(dmp_str_rgb, ',');
+
+					if (tokens.size() == 3) {
+
+						size_t chv;
+						size_t c = 0;
+
+						//red
+
+						pfc::string8 w = tokens.at(0).c_str(); w = w.trim(' ');
+						bool is_n = pfc::string_is_numeric(w);
+						if (is_n && (chv = atoi(w)) < 256) {
+							elem.second.r = static_cast<uint8_t>(chv);
+							c++;
+						}
+
+						//green
+
+						w = tokens.at(1).c_str(); w = w.trim(' ');
+						is_n = pfc::string_is_numeric(w);
+						if (is_n && (chv = atoi(w)) < 256) {
+							elem.second.g = static_cast<uint8_t>(chv);
+							c++;
+						}
+
+						//blue
+
+						w = tokens.at(2).c_str(); w = w.trim(' ');
+						is_n = pfc::string_is_numeric(w);
+						if (is_n && (chv = atoi(w)) < 256) {
+							elem.second.b = static_cast<uint8_t>(chv);
+							c++;
+						}
+						if (c == 3) {
+							auto it = vdefs.find(dmp_str_id);
+							if (it != vdefs.end()) {
+								vcolors.emplace_back(std::pair(it->second, elem.second));
+							}
+						}
+					} // 3 tokens
+				} // each field
+			} // is array
+			return true;
+		} // each obj
 	}
-}
 	catch (...) {
 		throw exception_io();
 	}
@@ -229,7 +213,6 @@ bool colors_json::read_colors_json(bool dark) {
 				console::formatter() << "[" << COMPONENT_NAME << "] : " <<
 				"JSON error: " << error.text << ", in line : " << error.line << ", column: " << error.column <<
 					", position: " << error.position << ", src: " << error.source;
-
 			}
 
 			//todo
@@ -257,6 +240,7 @@ bool colors_json::read_colors_json(bool dark) {
 				}
 
 				console::formatter() << "[" << COMPONENT_NAME << "] : Lexer theme loaded.";
+
 				//..
 				return true;
 				//..
@@ -281,9 +265,8 @@ bool colors_json::read_colors_json(bool dark) {
 		}
 	}
 	catch (...) {
-		//..
+		console::formatter() << "[" << COMPONENT_NAME << "] :Reading data from file failed:", " Unknown Exception";
 		bres = false;
 	}
-
 	return bres;
 }
