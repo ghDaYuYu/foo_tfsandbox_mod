@@ -4,7 +4,7 @@
 
 namespace Scintilla {
 
-class ScintillaCtrlExt : public Scintilla::CScintillaCtrl
+class CScintillaCtrlExt : public Scintilla::CScintillaCtrl
 {
 public:
 	//fake create, reuse existing instance
