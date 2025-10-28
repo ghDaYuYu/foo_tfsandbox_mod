@@ -1,0 +1,18 @@
+ScintillaWin.cxx
+
+replace:
+wndclass.lpszClassName = L"Scintilla";
+to:
+wndclass.lpszClassName = L"tfsm_Scintilla";
+
+replace:
+const TCHAR callClassName[] = TEXT("CallTip");
+to:
+const TCHAR callClassName[] = TEXT("tfsm_CallTip");
+
+ListBox.cxx
+
+replace:
+const TCHAR ListBoxX_ClassName[] = TEXT("ListBoxX");
+to:
+const TCHAR ListBoxX_ClassName[] = TEXT("tfsm_ListBoxX");

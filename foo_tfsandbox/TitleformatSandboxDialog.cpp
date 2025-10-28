@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include <vector>
 
-#include "SDK/console.h"
 #include "libPPUI/win32_utility.h"
 
 #include "Scintilla.h"
@@ -15,13 +14,14 @@
 
 #include "ScintillaCtrlExt.h"
 
-#include "colors_json.h"
 #include "version.h"
+#include "colors_json.h"
 #include "guids.h"
+
+#include "LibraryModule.h"
 
 #include "titleformat_node_filter.h"
 #include "titleformat_visitor_impl.h"
-
 #include "TitleformatSandboxDialog.h"
 
 #ifndef U2T
@@ -216,12 +216,7 @@ CTitleFormatSandboxDialog::CTitleFormatSandboxDialog() :m_dlgResizeHelper(resize
 		//return;
 	}
 
-	//m_lexillaScope.LoadLibrary(pfc::stringcvt::string_os_from_utf8(lexilla_path.get_ptr()));
-
-	if (!m_lexillaScope.IsLoaded()) {
-		console::formatter() << "[" << COMPONENT_NAME << "] :" << lexilla_path << " not loaded.";
-		return;
-	}
+	/*bool res = */RegisterScintillaModule(m_scintillaScope);
 }
 
 CTitleFormatSandboxDialog::~CTitleFormatSandboxDialog()
@@ -256,7 +251,7 @@ void CTitleFormatSandboxDialog::ActivateDialog()
 	{
 		CTitleFormatSandboxDialog * dlg /*g_dialog*/ = new CTitleFormatSandboxDialog();
 
-		if (dlg->m_scintillaScope.IsLoaded() && dlg->m_lexillaScope.IsLoaded() &&
+		if (dlg->m_scintillaScope.IsLoaded() /*&& dlg->m_lexillaScope.IsLoaded()*/ &&
 			dlg->Create(core_api::get_main_window()) != NULL)
 		{
 
@@ -791,15 +786,23 @@ BOOL CTitleFormatSandboxDialog::OnInitDialog(CWindow wndFocus, LPARAM lInitParam
 
 	// --------- INSTANCIATE FT LEXER -------------------
 
-	// TODO: fix manifest
-	FARPROC lexer_tf_create_fun = GetProcAddress(m_lexillaScope.GetModule(), LEXILLA_CREATELEXER);
-	Lexilla::CreateLexerFn lexilla_tf_create = (Lexilla::CreateLexerFn)(lexer_tf_create_fun);
+	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
+	char outlen[MAX_PATH] = { 0 };
+	if (rCtrlScript.GetLexerLanguage(outlen) && !strncmp(outlen, "titleformat", MAX_PATH)) {
+		m_lexillaScope.SetWasRegistered(true);
+	}
+	else {
+		if (RegisterLexillaModule(m_lexillaScope)) {
 
-	char lexer_tf_name[MAX_PATH] = "titleformat";
-	void* pLexer = lexilla_tf_create(lexer_tf_name);
-	::SendMessage(m_editor, SCI_SETILEXER, 0, (LPARAM)pLexer);
+			FARPROC lexer_tf_create_fun = GetProcAddress(m_lexillaScope.GetModule(), LEXILLA_CREATELEXER);
 
-	// --
+			Lexilla::CreateLexerFn lexilla_tf_create = reinterpret_cast<Lexilla::CreateLexerFn>(lexer_tf_create_fun);
+
+			char lexer_tf_name[MAX_PATH] = "titleformat";
+			void* pLexer = lexilla_tf_create(lexer_tf_name);
+			::SendMessage(m_editor, SCI_SETILEXER, 0, (LPARAM)pLexer);
+		}
+	}
 
 	m_dark.AddDialog(m_hWnd);
 	m_dark.AddControls(m_hWnd);

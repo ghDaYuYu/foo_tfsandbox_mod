@@ -14,7 +14,9 @@ bool CLibraryScope::LoadLibrary(LPCTSTR pszName)
 {
 	ATLASSERT(m_hDll == NULL);
 
-	m_hDll = ::LoadLibrary(pszName);
+	if (!m_was_registered) {
+		m_hDll = ::LoadLibrary(pszName);
+	}
 
 	return m_hDll != NULL;
 }
