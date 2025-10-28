@@ -230,7 +230,7 @@ void visitor_titleformat_debug::visit(ast::field_reference *n)
         {
 		    m_handle->format_title(nullptr, buffer, script, nullptr);
 		    data->m_string_value = &buffer[1];
-		    data->m_bool_value = buffer[0] == '1';
+		    data->m_bool_value = (buffer[0] == '1');
         }
 	}
 #endif
@@ -351,7 +351,7 @@ void visitor_titleformat_debug::visit(ast::call_expression *n)
 			pfc::string_formatter buffer;
 			m_handle->format_title(&titleformat_hook_impl_call_expression(this, m_env, n), buffer, script, 0);
 			data->m_string_value = &buffer[1];
-			data->m_bool_value = buffer[0] == '1';
+			data->m_bool_value = (buffer[0] == '1');
 			data->m_variables = m_variables;
 		}
 	}

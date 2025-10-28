@@ -24,11 +24,18 @@
 #include "titleformat_visitor_impl.h"
 #include "TitleformatSandboxDialog.h"
 
+using namespace ast;
+
 #ifndef U2T
 #define U2T(Text) pfc::stringcvt::string_os_from_utf8(Text).get_ptr()
 #endif
 
-//#define USE_EXPLORER_THEME 1
+
+#ifndef W2U
+#define W2U(Text) pfc::stringcvt::string_utf8_from_wide(Text).get_ptr()
+#endif
+
+
 const size_t kMaxBuffer = 1024 * 1024;
 
 static cfgDialogPosition cfg_window_position(guid_cfg_window_position);
@@ -46,7 +53,7 @@ static cfg_string cfg_format(guid_cfg_format,
 );
 
 static advconfig_checkbox_factory cfg_adv_load_theme_file("Load theme file", "foo_tfsandbox_mod.load_theme_file", guid_cfg_adv_load_theme_file, guid_tfsandbox_branch, order_load_theme_file, true);
-static advconfig_checkbox_factory cfg_adv_use_console_font("Use foobar2000 console font and font size", "foo_tfsandbox_mod.use_console_font", guid_cfg_adv_use_console_font, guid_tfsandbox_branch, order_use_console_font, 8);
+static advconfig_checkbox_factory cfg_adv_use_console_font("Use foobar2000 console font and font size", "foo_tfsandbox_mod.use_console_font", guid_cfg_adv_use_console_font, guid_tfsandbox_branch, order_use_console_font, false);
 static advconfig_integer_factory cfg_adv_tf_font_size("Stock font size (6..24)", "foo_tfsandbox_mod.tf_font_size", guid_cfg_adv_tf_font_size, guid_tfsandbox_branch, order_tf_font_size, 9, 6 /*minimum value*/, 24 /*maximum value*/);
 
 static COLORREF BlendColor(COLORREF color1, DWORD weight1, COLORREF color2, DWORD weight2)
@@ -57,7 +64,7 @@ static COLORREF BlendColor(COLORREF color1, DWORD weight1, COLORREF color2, DWOR
 	return RGB(r, g, b);
 }
 
-static void LoadMarkerIcon(Scintilla::CScintillaCtrl& sciLexer, int markerNumber, LPCTSTR name)
+static void LoadMarkerIcon(Scintilla::CScintillaCtrl& lexer, int markerNumber, LPCTSTR name)
 {
 	CIcon icon;
 	icon.LoadIcon(name, 16, 16);
@@ -93,37 +100,33 @@ static void LoadMarkerIcon(Scintilla::CScintillaCtrl& sciLexer, int markerNumber
 		}
 	}
 
-	sciLexer.RGBAImageSetWidth(16);
-	sciLexer.RGBAImageSetHeight(16);
-	sciLexer.RGBAImageSetScale(100);
-	sciLexer.MarkerDefineRGBAImage(markerNumber, &pixels[0]);
+	lexer.RGBAImageSetWidth(16);
+	lexer.RGBAImageSetHeight(16);
+	lexer.RGBAImageSetScale(100);
+	lexer.MarkerDefineRGBAImage(markerNumber, &pixels[0]);
 }
 
 CWindow CTitleFormatSandboxDialog::g_wndInstance;
 
-bool CTitleFormatSandboxDialog::find_fragment(ast::fragment &out, int start, int end)
+bool CTitleFormatSandboxDialog::find_fragment(fragment &out, int start, int end)
 {
 	return ast::find_fragment(out, m_debugger.get_root(), start, end, &ast::node_filter_impl_unknown_function(m_debugger));
 }
 
 //snapLeft, snapTop, snapRight, snapBottom
 static CDialogResizeHelper::Param resizeParams[] = {
-    {IDC_SCRIPT, 0, 0, 1, 1},
-    {IDC_VALUE, 0, 1, 1, 1},
-    {IDC_TREE, 1, 0, 1, 1}
+	{IDC_SCRIPT, 0, 0, 1, 1},
+	{IDC_VALUE, 0, 1, 1, 1},
+	{IDC_TREE, 1, 0, 1, 1}
 };
 
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_fonts_changed() {
-
 	if (cfg_adv_use_console_font.get()) {
-
 		p_dlg->SetupFonts();
-
-		bool dark = false;
-		dark = ui_config_manager::g_is_dark_mode();
-		p_dlg->InitControls(dark);
+		p_dlg->InitControls(ui_config_manager::g_is_dark_mode() || is_wine_dark_no_theme);
 	}
 }
+
 //! Called when user changes configuration of colors (also as a result of toggling dark mode). \n
 //! Note that for the duration of these callbacks, both old handles previously returned by query_font() as well as new ones are valid; old font objects are released when the callback cycle is complete.
 void CTitleFormatSandboxDialog::ui_v2_config_callback::ui_colors_changed() {
@@ -340,15 +343,11 @@ void CTitleFormatSandboxDialog::InitControls(bool dark_alpha) {
 #if defined(USE_EXPLORER_THEME)
 	imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 #else
-
 	if (dark_alpha || is_wine_dark_no_theme) {
 		imageList.CreateFromImage(IDB_SYMBOLS32_DARK, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
 	}
 	else {
 		imageList.CreateFromImage(IDB_SYMBOLS32, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP, LR_CREATEDIBSECTION);
-	}
-	else {
-		imageList.CreateFromImage(IDB_SYMBOLS, 16, 2, RGB(255, 0, 255), IMAGE_BITMAP);
 	}
 #endif
 	imageList.SetOverlayImage(6, 1);
@@ -611,8 +610,8 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 	}
 	else {
 		rCtrlScript.StyleSetFont(STYLE_DEFAULT, "Consolas");
-		rCtrlScript.StyleSetSizeFractional(STYLE_DEFAULT, cfg_adv_tf_font_size.get() * 100);
-		m_font_managed = true;
+		rCtrlScript.StyleSetSizeFractional(STYLE_DEFAULT, static_cast<int>(cfg_adv_tf_font_size.get() * 100));
+		//m_font_managed = true;
 	}
 
 	// VALUES (font size)
@@ -623,7 +622,7 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, PointSize/*cfg_adv_tf_font_size.get()*/ * 100);
 	}
 	else {
-		int desiredHeight = cfg_adv_tf_font_size.get();
+		int desiredHeight = static_cast<int>(cfg_adv_tf_font_size.get());
 		rCtrlValue.StyleSetSizeFractional(STYLE_DEFAULT, desiredHeight * 100);
 		rCtrlValue.StyleSetSizeFractional(STYLE_LINENUMBER, desiredHeight * 100);
 	}
@@ -652,10 +651,10 @@ void CTitleFormatSandboxDialog::SetupFonts() {
 			m_hTreeFont = nullptr;
 		}
 
-		int desiredHeight = cfg_adv_tf_font_size.get();
+		int desiredHeight = static_cast<int>(cfg_adv_tf_font_size.get());
 
 		CWindowDC dc(m_editor);
-		const int height = -MulDiv(desiredHeight, dc.GetDeviceCaps(LOGPIXELSY), /*dpi*/72);
+		const int height = -MulDiv(desiredHeight, dc.GetDeviceCaps(LOGPIXELSY), 72);
 		ReleaseDC(dc);
 
 		m_hTreeFont = CreateFont(height, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
@@ -715,12 +714,13 @@ Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
 {
 	if (id == IDC_SCRIPT) {
 	
-		if (m_pScript == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
+		if (!m_pScript) //NOLINT(clang-analyzer-cplusplus.NewDelete)
 		{
-			m_pScript = CreateScintillaControl();
-			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pScript.get());
-			CRect rc;
 			HWND hwnd = ::GetDlgItem(m_hWnd,id);
+			m_pScript = CreateScintillaControl();
+			Scintilla::CScintillaCtrlExt* tmpEx = static_cast<Scintilla::CScintillaCtrlExt*>(m_pScript.get());
+
+			CRect rc;
 			::GetWindowRect(hwnd, rc);
 			//fake, reuse existing instance
 			if (tmpEx->Create(hwnd, rc, WS_CHILD | WS_VISIBLE | WS_TABSTOP, id, 0, 0)) {
@@ -735,12 +735,13 @@ Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
 	}
 	else if (id == IDC_VALUE) {
 
-		if (m_pValue == nullptr) //NOLINT(clang-analyzer-cplusplus.NewDelete)
+		if (!m_pValue) //NOLINT(clang-analyzer-cplusplus.NewDelete)
 		{
 			m_pValue = CreateScintillaControl();
-			Scintilla::ScintillaCtrlExt* tmpEx = static_cast<Scintilla::ScintillaCtrlExt*>(m_pValue.get());
-			
+
 			CRect rc;
+			Scintilla::CScintillaCtrlExt* tmpEx = static_cast<Scintilla::CScintillaCtrlExt*>(m_pValue.get());
+
 			HWND hwnd = ::GetDlgItem(m_hWnd, id);
 			::GetWindowRect(hwnd, rc);
 			//fake, reuse existing instance
@@ -750,6 +751,7 @@ Scintilla::CScintillaCtrl& CTitleFormatSandboxDialog::GetCtrl(int id)
 			else {
 				//..
 			}
+
 			tmpEx = nullptr;
 		}
 		return *m_pValue;
@@ -897,11 +899,10 @@ LRESULT CTitleFormatSandboxDialog::OnScriptUpdateUI(LPNMHDR pnmh)
 
 	if (!m_script_update_pending && GetFocus() == m_editor)
 	{
-
 		auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 
-		int selStart = rCtrlScript.GetSelectionStart();
-		int selEnd = rCtrlScript.GetSelectionEnd();
+		int selStart = static_cast<int>(rCtrlScript.GetSelectionStart());
+		int selEnd = static_cast<int>(rCtrlScript.GetSelectionEnd());
 
 		UpdateFragment(selStart, selEnd);
 	}
@@ -915,7 +916,7 @@ LRESULT CTitleFormatSandboxDialog::OnTreeSelChanged(LPNMHDR pnmh)
 		LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)pnmh;
 		if (pnmtv->itemNew.hItem != 0 && pnmtv->itemNew.lParam != 0)
 		{
-			ast::node *n = (ast::node *)pnmtv->itemNew.lParam;
+			node *n = (node *)pnmtv->itemNew.lParam;
 			UpdateFragment(n->get_start(), n->get_end());
 
 			auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
@@ -946,7 +947,7 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 #endif
 			if (pnmcd->nmcd.lItemlParam != 0 && replaceTextColor)
 			{
-				ast::node *n = (ast::node *)pnmcd->nmcd.lItemlParam;
+				node *n = (node *)pnmcd->nmcd.lItemlParam;
 				bool active = m_debugger.test_value(n);
 
 				// MAIN BACK/FORE COLORS
@@ -957,37 +958,37 @@ LRESULT CTitleFormatSandboxDialog::OnTreeCustomDraw(LPNMHDR pnmh)
 
 				switch (n->kind())
 				{
-				case ast::node::kind_block:
+				case node::kind_block:
 					//tree root 
 					crcol = get_lex_color(mlex_colors["special string"]);
 
 					pnmcd->clrText = active ? crcol/*(255, 0,0)RGB*/ : BlendColor(crcol, 1, background, 1);
 					break;
-				case ast::node::kind_call:
+				case node::kind_call:
 
 					crcol = get_lex_color(mlex_colors["field"]);
 
 					pnmcd->clrText = active ?crcol /*RGB(192, 0, 192)*/ : BlendColor(crcol, 1, background, 1);
 					break;
-				case ast::node::kind_comment:
+				case node::kind_comment:
 
 					crcol = get_lex_color(mlex_colors["comment"]);
 
 					pnmcd->clrText = crcol; /*RGB(0, 192, 0);*/
 					break;
-				case ast::node::kind_condition:
+				case node::kind_condition:
 
 					crcol = get_lex_color(mlex_colors["operator"]);
 
 					pnmcd->clrText = active ? crcol/*RGB(255, 222, 255)*/ : BlendColor(crcol, 1, background, 1);
 					break;
-				case ast::node::kind_field:
+				case node::kind_field:
 
 					crcol = get_lex_color(mlex_colors["identifier"/*"Keyword1"*/]);
 
 					pnmcd->clrText = active ? crcol/*RGB(150, 150, 255)*/ : BlendColor(crcol/*RGB(0, 0, 192)*/, 1, background, 1);
 					break;
-				case ast::node::kind_string:
+				case node::kind_string:
 
 					crcol = get_lex_color(mlex_colors["string"]);
 
@@ -1179,7 +1180,7 @@ void CTitleFormatSandboxDialog::UpdateTrace()
 
 	}
 
-	m_selfrag = ast::fragment();
+	m_selfrag = fragment();
 
 	metadb_handle_ptr track;
 	metadb::g_get_random_handle(track);
@@ -1197,7 +1198,7 @@ void CTitleFormatSandboxDialog::UpdateTrace()
 	UpdateScriptSyntaxTree();
 	
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
-	UpdateFragment(rCtrlScript.GetSelectionStart(), rCtrlScript.GetSelectionEnd());
+	UpdateFragment(static_cast<int>(rCtrlScript.GetSelectionStart()), static_cast<int>(rCtrlScript.GetSelectionEnd()));
 }
 
 void CTitleFormatSandboxDialog::ClearInactiveCodeIndicator()
@@ -1234,13 +1235,12 @@ void CTitleFormatSandboxDialog::UpdateInactiveCodeIndicator()
 
 void CTitleFormatSandboxDialog::ClearFragment()
 {
-	m_selfrag = ast::fragment();
+	m_selfrag = fragment();
 
 	auto& rCtrlScript{ GetCtrl(IDC_SCRIPT) };
 	rCtrlScript.SetIndicatorCurrent(indicator_fragment);
 	rCtrlScript.SetIndicatorValue(1);
 	rCtrlScript.IndicatorClearRange(0, rCtrlScript.GetTextLength());
-
 }
 
 void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
@@ -1253,7 +1253,7 @@ void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
 	{
 		if (m_debugger.get_parser_errors() == 0)
 		{
-			ast::fragment selfrag;
+			fragment selfrag;
 			find_fragment(selfrag, selStart, selEnd);
 
 			bool fragment_changed = m_selfrag != selfrag;
@@ -1268,7 +1268,7 @@ void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
 
 			for (t_size index = 0; index < selfrag.get_count(); ++index)
 			{
-				if (selfrag[index]->kind() != ast::node::kind_comment)
+				if (selfrag[index]->kind() != node::kind_comment)
 				{
 					pfc::string_formatter node_string_value;
 					bool node_bool_value = false;
@@ -1290,7 +1290,7 @@ void CTitleFormatSandboxDialog::UpdateFragment(int selStart, int selEnd)
 
 			for (t_size index = 0; index < selfrag.get_count(); ++index)
 			{
-				ast::position pos = selfrag[index]->get_position();
+				position pos = selfrag[index]->get_position();
 				if (pos.start != -1)
 				{
 					rCtrlScript.IndicatorFillRange(pos.start, pos.end - pos.start);
@@ -1330,28 +1330,28 @@ LRESULT CTitleFormatSandboxDialog::OnScriptDwellStart(LPNMHDR pnmh)
 
 	if (!m_script_update_pending && m_debugger.get_parser_errors() == 0)
 	{
-		ast::fragment frag;
-		if (find_fragment(frag, scn->position))
+		fragment frag;
+		if (find_fragment(frag, static_cast<int>(scn->position)))
 		{
 			if (frag.get_count() == 1)
 			{
-				ast::position pos = frag[0]->get_position();
+				position pos = frag[0]->get_position();
 				pfc::string_formatter msg;
 				switch (frag[0]->kind())
 				{
-				case ast::node::kind_comment:
+				case node::kind_comment:
 					msg << "Comment";
 					break;
-				case ast::node::kind_string:
+				case ::node::kind_string:
 					msg << "String constant";
 					break;
-				case ast::node::kind_field:
+				case node::kind_field:
 					msg << "Field reference";
 					break;
-				case ast::node::kind_condition:
+				case node::kind_condition:
 					msg << "Conditional section";
 					break;
-				case ast::node::kind_call:
+				case node::kind_call:
 					msg << "Function call";
 					break;
 				}

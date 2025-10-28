@@ -232,7 +232,7 @@ namespace ast
 	{
 		reset();
 		errors = "";
-		Scanner scanner((const unsigned char *)source, length);
+		Scanner scanner((const unsigned char *)source, static_cast<int>(length));
 		ErrorOutputImpl output(errors);
 		Parser parser(&scanner, &output);
 		parser.Parse();

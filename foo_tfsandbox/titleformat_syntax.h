@@ -41,7 +41,7 @@ namespace ast
 		void init_from_token(Token *t)
 		{
 			start = t->pos;
-			end = start + strlen(t->val);
+			end = start + static_cast<int>(strlen(t->val));
 			line = t->line;
 			column = t->col;
 		}
